@@ -1,20 +1,16 @@
 import {
   Client,
   Collection,
-  ContextMenuCommandBuilder,
   Events,
   GatewayIntentBits,
   REST,
-  Routes,
-  ApplicationCommandType,
+  Routes
 } from 'discord.js';
 
-import './database/ClanDatabaseTables.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-dotenv.config();
+import registerForwardWinlogs from "./util/ForwardWinLogs.js";
 
 // __dirname replacement for ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -66,15 +62,15 @@ try {
     `Started refreshing ${client.commands.size} application (/) commands.`
   );
 
-  const commands = [];
+  const json_commands = [];
   for (const command of client.commands.values()) {
-    commands.push(command.data.toJSON());
+    json_commands.push(command.data.toJSON());
   }
   // // Global commands (take ~1hr to propagate)
   await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), {
-    body: commands,
+    body: json_commands,
   });
-  console.log(`Registered ${commands.length} commands`);
+  console.log(`Registered ${json_commands.length} commands`);
 
   // // // For development, register in one guild (instant)
   // // await rest.put(
@@ -95,12 +91,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await command.execute(interaction);
   } catch (error) {
     console.error(error);
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply({
+      content: '⚠️ There was an error executing this command.',
+    });
+  } else {
     await interaction.reply({
-      content: 'There was an error executing this command.',
-      ephemeral: true,
+      content: '⚠️ There was an error executing this command.',
+      flags: 64,
     });
   }
+  }
 });
+
+registerForwardWinlogs(client);
 
 // Log in to Discord using token from .env
 client.login(process.env.DISCORD_TOKEN);

@@ -15,32 +15,38 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  const guildId = interaction.guild.id;
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const guildId = interaction.guild.id;
 
-  const [rows] = await connection.execute(
-    'SELECT * FROM clan_discord_details WHERE guild_id = ?',
-    [guildId]
-  );
-  const existing = rows[0];
+    const [rows] = await connection.execute(
+      'SELECT * FROM clan_discord_details WHERE guild_id = ?',
+      [guildId]
+    );
+    const existing = rows[0];
 
-  const modRole = interaction.options.getRole('modrole');
+    const modRole = interaction.options.getRole('modrole');
 
-  await connection.execute(
-    `INSERT INTO clan_discord_details (guild_id, mod_role_id)
+    await connection.execute(
+      `INSERT INTO clan_discord_details (guild_id, mod_role_id)
      VALUES (?, ?)
      ON DUPLICATE KEY UPDATE
        mod_role_id = VALUES(mod_role_id)`,
-    [guildId, modRole.id]
-  );
+      [guildId, modRole.id]
+    );
 
-  if (existing) {
-    return interaction.reply({
-      content: `⚠️ Moderator role changed from <@&${existing.mod_role_id}> to <@&${modRole.id}>.`,
-      flags: 64,
-    });
+    if (existing) {
+      return interaction.editReply({
+        content: `⚠️ Moderator role changed from <@&${existing.mod_role_id}> to <@&${modRole.id}>.`,
+        flags: 64,
+      });
+    }
+
+    return interaction.editReply(
+      `✅ Setup complete!\nModerator role: <@&${modRole.id}>`
+    );
+  } catch (err) {
+    console.error('Setup error:', err);
+    return interaction.editReply('❌ Something went wrong while in setup.');
   }
-
-  return interaction.reply(
-    `✅ Setup complete!\nModerator role: <@&${modRole.id}>`
-  );
 }

@@ -18,6 +18,8 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    try {
   const guildId = interaction.guild.id;
   const userId = interaction.user.id;
 
@@ -29,7 +31,7 @@ export async function execute(interaction) {
   const setup = rows[0];
 
   if (!setup) {
-    return interaction.reply({
+    return interaction.editReply({
       content: "⚠️ You must run `/setup` first.",
       flags: 64, 
     });
@@ -37,9 +39,8 @@ export async function execute(interaction) {
 
   // Check if user has the mod role
   const member = await interaction.guild.members.fetch(userId);
-  console.log("HERE" + member.roles.cache)
   if (!member.roles.cache.some(role => role.id == setup.mod_role_id)) {
-    return interaction.reply({
+    return interaction.editReply({
       content: "⚠️ You must have the mod role to run this command.",
       flags: 64,
     });
@@ -58,10 +59,14 @@ export async function execute(interaction) {
     [winlogChannel.id, clanTag, guildId]
   );
 
-  return interaction.reply({
+  return interaction.editReply({
     content: `✅ Settings updated.\n` +
              `New Winlog channel: <#${winlogChannel.id}>\n` +
              `New Clan Tag: ${clanTag}`,
     flags: 64,
   });
+} catch (err) {
+    console.error("Set winlogs error:", err);
+    return interaction.editReply("❌ Something went wrong while updating settings.");
+  }
 }
