@@ -20,7 +20,8 @@
   "homepage": "https://github.com/zormy1234/discordbot#readme",
   "dependencies": {
     "discord.js": "^14.22.1",
-    "dotenv": "^17.2.2"
+    "dotenv": "^17.2.2",
+    "mysql2": "^3.14.4"
   },
   "devDependencies": {
     "prettier": "^3.6.2"
