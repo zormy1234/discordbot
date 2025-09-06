@@ -1,5 +1,5 @@
 // const dotenv = require('dotenv').config();
-const { Client, Events, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
 
 // Create a new Discord client with message intent 
 const client = new Client({ 
