@@ -63,7 +63,6 @@ export async function execute(interaction) {
     content: `✅ Settings updated.\n` +
              `New Winlog channel: <#${winlogChannel.id}>\n` +
              `New Clan Tag: ${clanTag}`,
-    flags: 64,
   });
 } catch (err) {
     console.error("Set winlogs error:", err);
