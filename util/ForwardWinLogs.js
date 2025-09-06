@@ -7,9 +7,12 @@ export default function registerForwardWinlogs(client) {
 
     // 2. Only listen in specific source guild/channel
     if (
-      message.guild?.id !== "1263192728884346913" ||
-      message.channel.id !== "1363104979342065896"
-    ) return;
+      //   message.guild?.id !== '1263192728884346913' ||
+      //   message.channel.id !== '1363104979342065896'
+      message.guild?.id !== '1171502780108771439' ||
+      message.channel.id !== '1411760098392539267'
+    )
+      return;
 
     // 3. Split message into lines (ignore code block markers if present)
     const content = message.content.replace(/```/g, '');
@@ -46,12 +49,10 @@ export default function registerForwardWinlogs(client) {
 
       // 5. Iterate over each guild result
       for (const row of clan_details) {
-        const guild = client.guilds.cache.get(row.guild_id);
+        const guild = client.guilds.cache.get(row.guildId);
         if (!guild) continue;
 
-        const winlogChannel = guild.channels.cache.get(
-          row.tanks_winlog_channel_id
-        );
+        const winlogChannel = guild.channels.cache.get(row.winlogChannelId);
         if (!winlogChannel?.isTextBased()) continue;
 
         // 6. Forward the line
