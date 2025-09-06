@@ -3,8 +3,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const connection = mysql.createPool({
-  host: 'db-eu-01.sparkedhost.us', 
-  port: 3306,                      
+  host: process.env.DB_HOST, 
+  port: process.env.DB_PORT,                      
   user: process.env.CLAN_DB_USERNAME,
   password: process.env.CLAN_DB_PASSWORD, 
   database: 's190398_clan_details',
