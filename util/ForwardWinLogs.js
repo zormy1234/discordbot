@@ -7,15 +7,16 @@ export default function registerForwardWinlogs(client) {
 
     // 2. Only listen in specific source guild/channel
     if (
-      //   message.guild?.id !== '1263192728884346913' ||
-      //   message.channel.id !== '1363104979342065896'
-      message.guild?.id !== '1171502780108771439' ||
-      message.channel.id !== '1411760098392539267'
+    //   message.guild?.id !== '1263192728884346913' ||
+    //   message.channel.id !== '1363104979342065896'
+        message.guild?.id !== '1171502780108771439' ||
+        message.channel.id !== '1411760098392539267'
     )
       return;
 
     // 3. Split message into lines (ignore code block markers if present)
     const content = message.content.replace(/```/g, '');
+
     const lines = content
       .split('\n')
       .map((l) => l.trim())
@@ -23,8 +24,8 @@ export default function registerForwardWinlogs(client) {
 
     const [rows] = await connection.execute(
       `SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
-         FROM clan_discord_details
-         WHERE tanks_clan_tag IS NOT NULL AND tanks_clan_tag != ''`
+          FROM clan_discord_details
+          WHERE tanks_clan_tag IS NOT NULL AND tanks_clan_tag != ''`
     );
 
     const clanMap = new Map();
@@ -41,13 +42,16 @@ export default function registerForwardWinlogs(client) {
 
     for (const line of lines) {
       const columns = line.split(/\s+/);
-      if (!columns[0]) continue;
+      if (columns.length < 7) continue; // need at least 4 columns
 
-      const clanTag = columns[0];
+      // Clan tag is always column 4 (index 3)
+      const clanTag = columns[2].trim();
+      if (!clanTag) continue; // skip if empty
+
       const clan_details = clanMap.get(clanTag);
       if (!clan_details) continue;
 
-      // 5. Iterate over each guild result
+      // Forward to all guilds registered for this clan tag
       for (const row of clan_details) {
         const guild = client.guilds.cache.get(row.guildId);
         if (!guild) continue;
@@ -55,7 +59,6 @@ export default function registerForwardWinlogs(client) {
         const winlogChannel = guild.channels.cache.get(row.winlogChannelId);
         if (!winlogChannel?.isTextBased()) continue;
 
-        // 6. Forward the line
         await winlogChannel.send(`\`\`\`\n${line}\n\`\`\``);
       }
     }
