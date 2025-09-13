@@ -1,11 +1,10 @@
-import { Client, Collection, Events, GatewayIntentBits, REST, Routes, } from 'discord.js';
+import 'dotenv/config';
+import { Client, Collection, Events, GatewayIntentBits, REST, Routes } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import registerForwardWinlogs from './util/ForwardWinLogs.js';
-import dotenv from 'dotenv';
-dotenv.config();
-// __dirname replacement for ES Modules
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Create a new Discord client with intents
