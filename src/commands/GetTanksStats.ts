@@ -61,7 +61,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           inline: false,
         },
         {
-          name: 'Higest Score',
+          name: 'Highest Score',
           value: Number(stats.highest_score.toFixed(0)).toLocaleString(),
           inline: false,
         },
