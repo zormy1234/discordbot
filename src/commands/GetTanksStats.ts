@@ -44,30 +44,32 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .addFields(
         {
           name: 'Total Kills',
-          value: stats.total_kills.toLocaleString(),
-          inline: true,
+          value: Number(stats.total_kills).toLocaleString(),
+          inline: false,
         },
         {
           name: 'Total Deaths',
-          value: stats.total_deaths.toLocaleString(),
-          inline: true,
+          value: Number(stats.total_deaths).toLocaleString(),
+          inline: false,
         },
+        { name: 'Kill/Death Ratio', value: kdRatio, inline: false },
         {
           name: 'Average Score',
-          value: Number((stats.total_score / stats.num_entries).toFixed(0)).toLocaleString(),
-          inline: true,
+          value: Number(
+            (stats.total_score / stats.num_entries).toFixed(0)
+          ).toLocaleString(),
+          inline: false,
         },
         {
           name: 'Higest Score',
           value: Number(stats.highest_score.toFixed(0)).toLocaleString(),
-          inline: true,
+          inline: false,
         },
         {
           name: 'Average Rank',
           value: (stats.total_rank / stats.num_entries).toFixed(2),
-          inline: true,
-        },
-        { name: 'Kill/Death Ratio', value: kdRatio, inline: true }
+          inline: false,
+        }
       )
       .setTimestamp();
 
