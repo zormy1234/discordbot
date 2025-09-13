@@ -4,8 +4,10 @@ export default function registerForwardWinlogs(client) {
         if (message.author.id === client.user?.id)
             return;
         if (
+        // test
         // message.guild?.id !== '1263192728884346913' ||
         // message.channel.id !== '1363104979342065896'
+        // prod
         message.guild?.id !== '1171502780108771439' ||
             message.channel.id !== '1411760098392539267')
             return;
@@ -30,9 +32,9 @@ export default function registerForwardWinlogs(client) {
         }
         for (const line of lines) {
             const columns = line.split(/\s+/);
-            if (columns.length < 4)
+            if (columns.length < 7)
                 continue;
-            const clanTag = columns[3]?.trim();
+            const clanTag = columns[2]?.trim();
             if (!clanTag)
                 continue;
             const clanDetails = clanMap.get(clanTag);
