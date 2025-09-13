@@ -3,17 +3,18 @@ export default function registerForwardWinlogs(client) {
     client.on('messageCreate', async (message) => {
         if (message.author.id === client.user?.id)
             return;
-        if (message.guild?.id !== '1263192728884346913' ||
-            message.channel.id !== '1363104979342065896'
-        // message.guild?.id !== '1171502780108771439' ||
-        // message.channel.id !== '1411760098392539267'
-        )
+        if (
+        // message.guild?.id !== '1263192728884346913' ||
+        // message.channel.id !== '1363104979342065896'
+        message.guild?.id !== '1171502780108771439' ||
+            message.channel.id !== '1411760098392539267')
             return;
         const content = message.content.replace(/```/g, '');
         const lines = content
             .split('\n')
             .map((l) => l.trim())
             .filter(Boolean);
+        console.log(`recieved message on channel starting with line ${lines[0]}`);
         const [rows] = await connection.execute(`SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
        FROM clan_discord_details
        WHERE tanks_clan_tag IS NOT NULL AND tanks_clan_tag != ''`);
