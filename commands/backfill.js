@@ -31,6 +31,7 @@ export async function execute(interaction) {
             fetchedMessages.push(...messages.values());
             lastId = messages.last()?.id;
             console.log(`Fetched ${fetchedMessages.length} messages so far`);
+            console.log(lastId);
         }
         console.log(`Fetched ${fetchedMessages.length} messages`);
         // Parse all lines
