@@ -6,10 +6,11 @@ const poolOptions = {
     port: Number(process.env.DB_PORT),
     user: process.env.CLAN_DB_USERNAME,
     password: process.env.CLAN_DB_PASSWORD,
-    database: "s190398_clan_details",
+    database: process.env.CLAN_DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 10,
+    multipleStatements: true,
 };
 const connection = mysql.createPool(poolOptions);
 export default connection;

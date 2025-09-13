@@ -1,10 +1,10 @@
-import 'dotenv/config';
-import { Client, Collection, Events, GatewayIntentBits, REST, Routes } from 'discord.js';
+import { Client, Collection, Events, GatewayIntentBits, REST, Routes, } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import registerForwardWinlogs from './util/ForwardWinLogs.js';
-
+import handleWinlogs from './handle_winlogs/ReceiveWinlogs.js';
+import './database/PrivateDbTables.js';
+// __dirname replacement for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Create a new Discord client with intents
@@ -75,6 +75,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 });
 // Register forwarder
-registerForwardWinlogs(client);
+handleWinlogs(client);
 // Log in
 client.login(process.env.DISCORD_TOKEN);

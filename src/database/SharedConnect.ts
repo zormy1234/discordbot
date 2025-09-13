@@ -1,7 +1,6 @@
 // util/dbLog.js (ESM)
-import mysql from 'mysql2/promise';   // npm i mysql2
-// If you use a .env file, uncomment the next line:
-// import 'dotenv/config';
+import mysql, { Pool, PoolOptions, ResultSetHeader, RowDataPacket } from 'mysql2/promise';   // npm i mysql2
+import 'dotenv/config';
 
 const pool = mysql.createPool({
   host: process.env.LOG_DB_HOST,
@@ -13,10 +12,23 @@ const pool = mysql.createPool({
   supportBigNumbers: true
 });
 
+const poolOptions: PoolOptions = {
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT), 
+  user: process.env.CLAN_DB_USERNAME,
+  password: process.env.CLAN_DB_PASSWORD,
+  database: "",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 10,
+};
+
+const connection: Pool = mysql.createPool(poolOptions);
+
 /**
  * evt: { ts, level, source, host, message, raw }
  */
-export async function writeWinLog(evt) {
+export async function writeWinLog(evt: { level: any; source: any; host: any; message: any; raw: any; }) {
   const sql = `INSERT INTO win_logs (ts, level, source, host, message, raw_json)
              VALUES (NOW(3), ?, ?, ?, ?, ?)`;
   const raw = typeof evt.raw === 'string' ? evt.raw : JSON.stringify(evt.raw ?? {});
