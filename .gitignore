@@ -2,3 +2,6 @@ package-lock.json
 /node_modules
 .env
 .envprod
+# local dev helpers
+util/test-log.js
+util/check-env.js
