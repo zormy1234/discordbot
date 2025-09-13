@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder, } from 'discord.js';
 import connection from '../database/connect.js';
 import { parseLine } from '../handle_winlogs/ReceiveWinlogs.js';
 export const data = new SlashCommandBuilder()
@@ -20,6 +20,7 @@ export async function execute(interaction) {
         const afterMessageId = interaction.options.getString('after') ?? undefined;
         let fetchedMessages = [];
         let lastId = afterMessageId;
+        const seen = new Set();
         // Fetch messages in batches
         while (true) {
             const messages = await channel.messages.fetch({
@@ -28,15 +29,21 @@ export async function execute(interaction) {
             });
             if (!messages.size)
                 break;
-            fetchedMessages.push(...messages.values());
+            // De-duplicate by ID
+            for (const msg of messages.values()) {
+                if (!seen.has(msg.id)) {
+                    seen.add(msg.id);
+                    fetchedMessages.push(msg.content); // only store content if you want
+                }
+            }
+            // Move window forward: use the *oldest* message from this batch
             lastId = messages.last()?.id;
-            console.log(`Fetched ${fetchedMessages.length} messages so far`);
-            console.log(lastId);
+            console.log(`Fetched ${fetchedMessages.length} unique so far, lastId=${lastId}`);
         }
         console.log(`Fetched ${fetchedMessages.length} messages`);
         // Parse all lines
         const parsedLines = fetchedMessages
-            .flatMap((msg) => msg.content
+            .flatMap((msg) => msg
             .split('\n')
             .map((l) => l.trim())
             .filter(Boolean)
@@ -49,6 +56,8 @@ export async function execute(interaction) {
             if (line == undefined)
                 return;
             const { gid, kills, deaths, score, rank, username, clan } = line;
+            // console.log("before")
+            // console.log(grouped[gid])
             if (!grouped[gid]) {
                 grouped[gid] = {
                     total_kills: 0,
