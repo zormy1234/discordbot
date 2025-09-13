@@ -21,9 +21,12 @@
   "dependencies": {
     "discord.js": "^14.22.1",
     "dotenv": "^17.2.2",
-    "mysql2": "^3.14.4"
+    "mysql2": "^3.14.5"
   },
   "devDependencies": {
-    "prettier": "^3.6.2"
+    "@types/node": "^24.3.3",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "undici-types": "^7.16.0"
   }
 }

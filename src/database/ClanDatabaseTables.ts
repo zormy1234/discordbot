@@ -1,7 +1,8 @@
 import pool from './connect.js';
+
 // Ensure the table exists
 export async function initDB() {
-    await pool.query(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS clan_discord_details (
       guild_id VARCHAR(255) PRIMARY KEY,
       mod_role_id VARCHAR(255),
@@ -10,5 +11,6 @@ export async function initDB() {
     )
   `);
 }
+
 // Initialize immediately
 initDB().catch(console.error);
