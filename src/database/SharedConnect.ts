@@ -15,15 +15,15 @@ const pool = mysql.createPool({
 const poolOptions: PoolOptions = {
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT), 
-  user: process.env.CLAN_DB_USERNAME,
-  password: process.env.CLAN_DB_PASSWORD,
-  database: "",
+  user: process.env.LOG_DB_USER,
+  password: process.env.LOG_DB_PASS,
+  database: process.env.LOG_DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 10,
 };
 
-const connection: Pool = mysql.createPool(poolOptions);
+export const connection: Pool = mysql.createPool(poolOptions);
 
 /**
  * evt: { ts, level, source, host, message, raw }

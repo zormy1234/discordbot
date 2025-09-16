@@ -1,5 +1,5 @@
 import connection from '../database/connect.js';
-import { writeWinLog } from '../database/SharedConnect.js';
+import { writeWinLog, connection as sharedConnection } from '../database/SharedConnect.js';
 export async function storeInDb(lines, message) {
     for (const line of lines) {
         // Always log the raw line
@@ -26,6 +26,18 @@ export async function storeInDb(lines, message) {
         const { rank, gid, clan, username, score, kills, deaths } = line.parsed;
         const ts = message.createdAt;
         try {
+            await sharedConnection.execute(`INSERT INTO tanks_history
+          (gid, username, clan_tag, rank, score, kills, deaths, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+                gid,
+                username,
+                clan ?? null, // avoid "undefined"
+                rank,
+                score,
+                kills,
+                deaths,
+                ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
+            ]);
             // Totals
             await connection.execute(`INSERT INTO tanks_totals
             (gid, total_kills, total_deaths, total_score, total_rank, num_entries, highest_score, all_names, recent_name, recent_clan_tag)

@@ -1,6 +1,6 @@
 import { Message } from 'discord.js';
 import connection from '../database/connect.js';
-import { writeWinLog } from '../database/SharedConnect.js';
+import { writeWinLog, connection as sharedConnection } from '../database/SharedConnect.js';
 import { RawWithParsed } from './ReceiveWinlogs.js';
 
 export async function storeInDb(
@@ -32,6 +32,22 @@ export async function storeInDb(
     const ts = message.createdAt;
 
     try {
+      await sharedConnection.execute(
+        `INSERT INTO tanks_history
+          (gid, username, clan_tag, rank, score, kills, deaths, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          gid,
+          username,
+          clan ?? null, // avoid "undefined"
+          rank,
+          score,
+          kills,
+          deaths,
+          ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
+        ]
+      );
+
       // Totals
       await connection.execute(
         `INSERT INTO tanks_totals
