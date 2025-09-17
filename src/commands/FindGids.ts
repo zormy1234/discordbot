@@ -11,7 +11,6 @@ import {
   export const data = new SlashCommandBuilder()
     .setName('find_player')
     .setDescription('Find players by name (and optional clan tag)')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(option =>
       option.setName('name')
         .setDescription('Player name to search for')

@@ -1,9 +1,8 @@
-import { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } from 'discord.js';
 import connection from '../database/connect.js';
 export const data = new SlashCommandBuilder()
     .setName('find_player')
     .setDescription('Find players by name (and optional clan tag)')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(option => option.setName('name')
     .setDescription('Player name to search for')
     .setRequired(true))
