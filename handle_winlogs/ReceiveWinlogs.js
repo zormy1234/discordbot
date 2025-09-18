@@ -48,7 +48,8 @@ export default function handleWinlogs(client) {
             .flatMap((l) => {
             const parsed = parseLine(l);
             return { raw: l, parsed: parsed };
-        });
+        })
+            .filter(parsedWithLine => parsedWithLine.parsed != undefined);
         console.log(`recieved message on channel starting with line ${lines[0].raw}`);
         await storeInDb(lines, message);
         await forwardWinlogs(client, lines);

@@ -18,43 +18,43 @@ export interface RawWithParsed {
 }
 
 export function parseLine(line: string): ParsedLine | null {
-    const trimmed = line.trim();
-    if (!trimmed) return null;
-  
-    // Match last three numeric columns (score, kills, deaths), allowing commas
-    const match = trimmed.match(/(\d{1,3}(?:,\d{3})*)\s+(\d+)\s+(\d+)$/);
-    if (!match) return null;
-  
-    const [_, scoreStr, killsStr, deathsStr] = match;
-  
-    const score = parseInt(scoreStr.replace(/,/g, ''), 10);
-    const kills = parseInt(killsStr, 10);
-    const deaths = parseInt(deathsStr, 10);
-  
-    // Remove the numeric columns from the end
-    const rest = trimmed.slice(0, match.index).trim();
-  
-    // First two columns: rank and gid
-    const parts = rest.split(/\s+/);
-    if (parts.length < 2) return null;
-  
-    const rank = parseInt(parts[0], 10);
-    const gid = parts[1];
-  
-    // Everything in between is clan (optional) + username
-    let clan = '';
-    let username = '';
-  
-    if (parts.length === 3) {
-      // No clan
-      username = parts[2];
-    } else if (parts.length >= 4) {
-      clan = parts[2];
-      username = parts.slice(3).join(' ');
-    }
-  
-    return { rank, gid, clan, username, score, kills, deaths };
-  }  
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Match last three numeric columns (score, kills, deaths), allowing commas
+  const match = trimmed.match(/(\d{1,3}(?:,\d{3})*)\s+(\d+)\s+(\d+)$/);
+  if (!match) return null;
+
+  const [_, scoreStr, killsStr, deathsStr] = match;
+
+  const score = parseInt(scoreStr.replace(/,/g, ''), 10);
+  const kills = parseInt(killsStr, 10);
+  const deaths = parseInt(deathsStr, 10);
+
+  // Remove the numeric columns from the end
+  const rest = trimmed.slice(0, match.index).trim();
+
+  // First two columns: rank and gid
+  const parts = rest.split(/\s+/);
+  if (parts.length < 2) return null;
+
+  const rank = parseInt(parts[0], 10);
+  const gid = parts[1];
+
+  // Everything in between is clan (optional) + username
+  let clan = '';
+  let username = '';
+
+  if (parts.length === 3) {
+    // No clan
+    username = parts[2];
+  } else if (parts.length >= 4) {
+    clan = parts[2];
+    username = parts.slice(3).join(' ');
+  }
+
+  return { rank, gid, clan, username, score, kills, deaths };
+}
 
 export default function handleWinlogs(client: Client) {
   client.on('messageCreate', async (message: Message) => {
@@ -74,7 +74,9 @@ export default function handleWinlogs(client: Client) {
       .flatMap((l) => {
         const parsed = parseLine(l);
         return { raw: l, parsed: parsed };
-      });
+      })
+      .filter(parsedWithLine => parsedWithLine.parsed != undefined)
+
     console.log(
       `recieved message on channel starting with line ${lines[0].raw}`
     );
