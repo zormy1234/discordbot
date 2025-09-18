@@ -75,7 +75,11 @@ export default function handleWinlogs(client: Client) {
         const parsed = parseLine(l);
         return { raw: l, parsed: parsed };
       })
-      .filter(parsedWithLine => parsedWithLine.parsed != undefined)
+      .filter((parsedWithLine) => parsedWithLine.parsed != undefined);
+
+    if (lines.length == 0) {
+      return;
+    }
 
     console.log(
       `recieved message on channel starting with line ${lines[0].raw}`
