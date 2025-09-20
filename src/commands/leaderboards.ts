@@ -111,7 +111,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       } else if (type === 'highest_score') {
         description += `\nGlobal avg highest score: ${averages.avg_highest_score.toFixed(0)}`;
       } else if (type === 'highest_kills') {
-        description += `\nGlobal avg highest kills: ${averages.avg_highest_kills.toFixed(0)}`;
+        description += `\nGlobal avg highest kills: ${Number(averages.avg_highest_kills).toFixed(0)}`;
       } else if (type === 'highest_kd') {
         description += `\nGlobal avg highest K/D: ${averages.avg_highest_kd.toFixed(2)}`;
       }
