@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, } from "discord.js";
 import connection from "../database/connect.js";
+import { connection as sharedConnection } from "../database/SharedConnect.js";
 export const data = new SlashCommandBuilder()
     .setName("rebuild_totals")
     .setDescription("Rebuild tanks_totals from tanks_history (expensive, careful!)");
@@ -7,7 +8,7 @@ export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: false });
     try {
         // 1. Pull everything from tanks_history
-        const [rows] = await connection.query(`SELECT * FROM tanks_history ORDER BY gid, created_at ASC`);
+        const [rows] = await sharedConnection.query(`SELECT * FROM tanks_history ORDER BY gid, created_at ASC`);
         if (!rows.length) {
             return interaction.editReply("❌ No history data found.");
         }

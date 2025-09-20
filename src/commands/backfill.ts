@@ -3,6 +3,7 @@ import {
     ChatInputCommandInteraction,
   } from "discord.js";
   import connection from "../database/connect.js";
+  import {connection as sharedConnection} from "../database/SharedConnect.js";
   import { RowDataPacket } from "mysql2/promise";
   
   export const data = new SlashCommandBuilder()
@@ -14,7 +15,7 @@ import {
   
     try {
       // 1. Pull everything from tanks_history
-      const [rows] = await connection.query<RowDataPacket[]>(
+      const [rows] = await sharedConnection.query<RowDataPacket[]>(
         `SELECT * FROM tanks_history ORDER BY gid, created_at ASC`
       );
   
