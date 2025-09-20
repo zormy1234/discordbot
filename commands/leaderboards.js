@@ -29,6 +29,15 @@ export async function execute(interaction) {
          FROM tanks_totals
          ORDER BY ${type} DESC
          LIMIT 50`));
+        // 2. Fetch global averages
+        const [avgRows] = (await connection.execute(`SELECT
+        AVG(highest_score) AS avg_highest_score,
+        AVG(highest_kills) AS avg_highest_kills,
+        AVG(highest_kd) AS avg_highest_kd,
+        AVG(avg_kd) AS avg_avg_kd
+     FROM tanks_totals
+     WHERE num_entries >= 2`));
+        const averages = avgRows[0];
         if (!rows.length)
             return interaction.editReply('❌ No data found.');
         // Prepare pages
@@ -54,6 +63,18 @@ export async function execute(interaction) {
                     : r.recent_name;
                 description += `${i + idx + 1}. ${name} — ${value}\n`;
             });
+            if (type === 'avg_kd') {
+                description += `\nGlobal avg K/D (players with ≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
+            }
+            else if (type === 'highest_score') {
+                description += `\nGlobal avg highest score: ${averages.avg_highest_score.toFixed(0)}`;
+            }
+            else if (type === 'highest_kills') {
+                description += `\nGlobal avg highest kills: ${averages.avg_highest_kills.toFixed(0)}`;
+            }
+            else if (type === 'highest_kd') {
+                description += `\nGlobal avg highest K/D: ${averages.avg_highest_kd.toFixed(2)}`;
+            }
             const embed = new EmbedBuilder()
                 .setTitle(`Leaderboard — ${typeNames[type]}`)
                 .setDescription(description)
