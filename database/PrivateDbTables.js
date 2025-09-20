@@ -15,11 +15,18 @@ export async function initDB() {
         total_deaths INT DEFAULT 0,
         total_score INT DEFAULT 0,
         total_rank INT DEFAULT 0,
+        avg_kd FLOAT DEFAULT 0,
         num_entries INT DEFAULT 0,
         highest_score FLOAT DEFAULT 0,
+        highest_kd FLOAT DEFAULT 0,
+        highest_kills INT DEFAULT 0,
+        highest_deaths INT DEFAULT 0,
+        number_top5 INT DEFAULT 0,
+        number_top20 FLOAT DEFAULT 0,
         all_names JSON DEFAULT (JSON_ARRAY()),
         recent_name VARCHAR(255),
-        recent_clan_tag VARCHAR(255)
+        recent_clan_tag VARCHAR(255),
+        last_entry TIMESTAMP NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS tanks_weekly (

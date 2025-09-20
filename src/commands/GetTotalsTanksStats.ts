@@ -8,7 +8,7 @@ import { RowDataPacket } from 'mysql2/promise';
 
 export const data = new SlashCommandBuilder()
   .setName('tanks_total_stats')
-  .setDescription('Get total and average stats for a given GID')
+  .setDescription('Get total stats for a given GID')
   .addStringOption((option) =>
     option.setName('gid').setDescription('The GID to look up').setRequired(true)
   );
@@ -20,7 +20,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const gid = interaction.options.getString('gid', true);
 
     const [rows] = (await connection.execute(
-      'SELECT total_kills, total_deaths, recent_name, recent_clan_tag, total_score, total_rank, num_entries, highest_score FROM tanks_totals WHERE gid = ?',
+      `SELECT 
+          total_kills, 
+          total_deaths, 
+          total_score, 
+          number_top5, 
+          number_top20, 
+          recent_name, 
+          recent_clan_tag
+       FROM tanks_totals 
+       WHERE gid = ?`,
       [gid]
     )) as RowDataPacket[];
 
@@ -31,17 +40,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const stats = rows[0];
-    const kdRatio =
-      stats.total_deaths > 0
-        ? (stats.total_kills / stats.total_deaths).toFixed(2)
-        : '∞';
 
     const embed = new EmbedBuilder()
       .setTitle(
-        `📊 Stats for ${stats.recent_clan_tag} | ${stats.recent_name || 'Unknown'} (${gid})`
+        `📊 Stats for ${stats.recent_clan_tag || ''} ${stats.recent_name || 'Unknown'} (${gid})`
       )
       .setColor(0x00ff00)
       .addFields(
+        {
+          name: 'Total Score',
+          value: Number(stats.total_score).toLocaleString(),
+          inline: false,
+        },
         {
           name: 'Total Kills',
           value: Number(stats.total_kills).toLocaleString(),
@@ -52,23 +62,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           value: Number(stats.total_deaths).toLocaleString(),
           inline: false,
         },
-        { name: 'Kill/Death Ratio', value: kdRatio, inline: false },
         {
-          name: 'Average Score',
-          value: Number(
-            (stats.total_score / stats.num_entries).toFixed(0)
-          ).toLocaleString(),
+          name: 'Total K/D Ratio',
+          value: Number(stats.total_kills / stats.total_deaths).toLocaleString(),
           inline: false,
         },
         {
-          name: 'Highest Score',
-          value: Number(stats.highest_score.toFixed(0)).toLocaleString(),
+          name: 'Number of Top 5 Finishes',
+          value: Number(stats.number_top5).toLocaleString(),
           inline: false,
         },
         {
-          name: 'Average Rank',
-          value: (stats.total_rank / stats.num_entries).toFixed(2),
-          inline: false,
+          name: 'Number of Top 20 finishes',
+          value: Number(stats.number_top20).toLocaleString(),inline: false,
         }
       )
       .setTimestamp();
