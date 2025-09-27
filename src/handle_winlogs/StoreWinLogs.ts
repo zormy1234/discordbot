@@ -50,9 +50,15 @@ export async function storeInDb(
           ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
         ]
       );
+    } catch (e) {
+      console.error(
+        'store tanks history failed:',
+        e instanceof Error ? e.message : e
+      );
+    }
 
+    try {
       // Totals
-      const start = Date.now();
       await connection.execute(
         `INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
@@ -107,9 +113,14 @@ export async function storeInDb(
           ts,
         ]
       );
+    } catch (e) {
+      console.error(
+        'store tanks totals failed:',
+        e instanceof Error ? e.message : e
+      );
+    }
 
-      console.log("Query took", Date.now() - start, "ms");
-
+    try {
       // Weekly stats
       const weekStart = new Date(ts);
       weekStart.setUTCHours(0, 0, 0, 0);
@@ -130,7 +141,7 @@ export async function storeInDb(
         [gid, weekStart, kills, deaths, score, rank, score, rank]
       );
     } catch (e) {
-      console.error('storelines failed:', e instanceof Error ? e.message : e);
+      console.error('store weekly failed:', e instanceof Error ? e.message : e);
     }
   }
 }

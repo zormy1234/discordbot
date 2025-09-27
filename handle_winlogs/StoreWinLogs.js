@@ -38,8 +38,12 @@ export async function storeInDb(lines, message) {
                 deaths,
                 ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
             ]);
+        }
+        catch (e) {
+            console.error('store tanks history failed:', e instanceof Error ? e.message : e);
+        }
+        try {
             // Totals
-            const start = Date.now();
             await connection.execute(`INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
               highest_score, highest_kd, highest_kills, highest_deaths,
@@ -91,7 +95,11 @@ export async function storeInDb(lines, message) {
                 clan,
                 ts,
             ]);
-            console.log("Query took", Date.now() - start, "ms");
+        }
+        catch (e) {
+            console.error('store tanks totals failed:', e instanceof Error ? e.message : e);
+        }
+        try {
             // Weekly stats
             const weekStart = new Date(ts);
             weekStart.setUTCHours(0, 0, 0, 0);
@@ -109,7 +117,7 @@ export async function storeInDb(lines, message) {
          avg_rank = (total_rank + VALUES(total_rank)) / (num_entries + 1)`, [gid, weekStart, kills, deaths, score, rank, score, rank]);
         }
         catch (e) {
-            console.error('storelines failed:', e instanceof Error ? e.message : e);
+            console.error('store weekly failed:', e instanceof Error ? e.message : e);
         }
     }
 }
