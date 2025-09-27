@@ -1,16 +1,6 @@
 // util/dbLog.js (ESM)
 import mysql from 'mysql2/promise'; // npm i mysql2
 import 'dotenv/config';
-const pool = mysql.createPool({
-    host: process.env.LOG_DB_HOST,
-    port: Number(process.env.LOG_DB_PORT || 3306),
-    user: process.env.LOG_DB_USER,
-    password: process.env.LOG_DB_PASS,
-    database: process.env.LOG_DB_NAME,
-    connectionLimit: 10,
-    supportBigNumbers: true,
-    connectTimeout: 20000,
-});
 const poolOptions = {
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT),
@@ -19,7 +9,7 @@ const poolOptions = {
     database: process.env.LOG_DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 10,
+    connectTimeout: 20000,
 };
 export const connection = mysql.createPool(poolOptions);
 /**
@@ -29,7 +19,7 @@ export async function writeWinLog(evt) {
     const sql = `INSERT INTO win_logs (ts, level, source, host, message, raw_json)
              VALUES (NOW(3), ?, ?, ?, ?, ?)`;
     const raw = typeof evt.raw === 'string' ? evt.raw : JSON.stringify(evt.raw ?? {});
-    await pool.execute(sql, [
+    await connection.execute(sql, [
         evt.level ?? null,
         evt.source ?? null,
         evt.host ?? null,
