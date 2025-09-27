@@ -52,7 +52,7 @@ export async function storeInDb(
       );
 
       // Totals
-      // Totals
+      const start = Date.now();
       await connection.execute(
         `INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
@@ -107,6 +107,8 @@ export async function storeInDb(
           ts,
         ]
       );
+
+      console.log("Query took", Date.now() - start, "ms");
 
       // Weekly stats
       const weekStart = new Date(ts);

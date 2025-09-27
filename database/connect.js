@@ -9,8 +9,8 @@ const poolOptions = {
     database: process.env.CLAN_DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 10,
     multipleStatements: true,
+    connectTimeout: 20000,
 };
 const connection = mysql.createPool(poolOptions);
 export default connection;

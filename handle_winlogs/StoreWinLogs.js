@@ -39,7 +39,7 @@ export async function storeInDb(lines, message) {
                 ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
             ]);
             // Totals
-            // Totals
+            const start = Date.now();
             await connection.execute(`INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
               highest_score, highest_kd, highest_kills, highest_deaths,
@@ -91,6 +91,7 @@ export async function storeInDb(lines, message) {
                 clan,
                 ts,
             ]);
+            console.log("Query took", Date.now() - start, "ms");
             // Weekly stats
             const weekStart = new Date(ts);
             weekStart.setUTCHours(0, 0, 0, 0);

@@ -8,8 +8,10 @@ const pool = mysql.createPool({
   user: process.env.LOG_DB_USER,
   password: process.env.LOG_DB_PASS,
   database: process.env.LOG_DB_NAME,
-  connectionLimit: 2,
-  supportBigNumbers: true
+  connectionLimit: 10,
+  supportBigNumbers: true,
+  connectTimeout: 20000,  
+
 });
 
 const poolOptions: PoolOptions = {
