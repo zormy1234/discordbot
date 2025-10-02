@@ -21,6 +21,7 @@ export const data = new SlashCommandBuilder()
       .setDescription('Leaderboard type')
       .setRequired(true)
       .addChoices(
+        { name: 'Biggest Score', value: 'biggest_score' },
         { name: 'Highest Score', value: 'highest_score' },
         { name: 'Highest Kills', value: 'highest_kills' },
         { name: 'Highest K/D', value: 'highest_kd' },
@@ -28,7 +29,9 @@ export const data = new SlashCommandBuilder()
       )
   );
 
+
 const typeNames: Record<string, string> = {
+  biggest_score: 'Biggest Score',
   highest_score: 'Highest Score',
   highest_kills: 'Highest Kills',
   highest_kd: 'Highest K/D',
@@ -40,31 +43,63 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   try {
     const type = interaction.options.getString('type', true);
+    const clan = interaction.options.getString('clan');
 
     // Change this query to include a WHERE clause only for avg_kd
-    const [rows] = (await connection.execute<RowDataPacket[]>(
-      type === 'avg_kd'
-        ? `SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
-         FROM tanks_totals
-         WHERE num_entries >= 2
-         ORDER BY avg_kd DESC
-         LIMIT 50`
-        : `SELECT gid, recent_name, recent_clan_tag, highest_score, highest_kills, highest_kd
-         FROM tanks_totals
-         ORDER BY ${type} DESC
-         LIMIT 50`
-    )) as RowDataPacket[];
+let query = '';
+let params: (string | number)[] = [];
+
+if (type === 'avg_kd') {
+  query = `
+    SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
+    FROM tanks_totals
+    WHERE num_entries >= 2
+  `;
+} else if (type === 'biggest_score') {
+  query = `
+    SELECT gid, recent_name, recent_clan_tag, biggest_score
+    FROM tanks_totals
+  `;
+} else {
+  query = `
+    SELECT gid, recent_name, recent_clan_tag, highest_score, highest_kills, highest_kd
+    FROM tanks_totals
+  `;
+}
+
+// Add clan filter if provided
+    if (clan) {
+      if (query.includes('WHERE')) {
+        query += ` AND recent_clan_tag = ?`;
+      } else {
+        query += ` WHERE recent_clan_tag = ?`;
+      }
+      params.push(clan);
+    }
+
+    // Add ordering + limit
+    query += ` ORDER BY ${type} DESC LIMIT 50`;
+
+    const [rows] = (await connection.execute<RowDataPacket[]>(query, params)) as RowDataPacket[];
+
 
     // 2. Fetch global averages
-    const [avgRows] = (await connection.execute<RowDataPacket[]>(
-      `SELECT
-        AVG(highest_score) AS avg_highest_score,
-        AVG(highest_kills) AS avg_highest_kills,
-        AVG(highest_kd) AS avg_highest_kd,
-        AVG(avg_kd) AS avg_avg_kd
-     FROM tanks_totals
-     WHERE num_entries >= 2`
-    )) as RowDataPacket[];
+    let avgQuery = `
+  SELECT
+    AVG(highest_score) AS avg_highest_score,
+    AVG(highest_kills) AS avg_highest_kills,
+    AVG(highest_kd) AS avg_highest_kd,
+    AVG(avg_kd) AS avg_avg_kd
+  FROM tanks_totals
+  WHERE num_entries >= 2
+`;
+const avgParams: (string | number)[] = [];
+if (clan) {
+  avgQuery += ` AND recent_clan_tag = ?`;
+  avgParams.push(clan);
+}
+const [avgRows] = (await connection.execute<RowDataPacket[]>(avgQuery, avgParams)) as RowDataPacket[];
+
 
     const averages = avgRows[0];
 
@@ -89,6 +124,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         ) => {
           const value = (() => {
             switch (type) {
+              case 'biggest_score':
+                return Number((r as any).biggest_score).toLocaleString();
+
               case 'highest_score':
                 return Number(r.highest_score).toLocaleString();
               case 'highest_kills':
@@ -114,8 +152,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         description += `\nGlobal avg highest kills: ${Number(averages.avg_highest_kills).toFixed(0)}`;
       } else if (type === 'highest_kd') {
         description += `\nGlobal avg highest K/D: ${averages.avg_highest_kd.toFixed(2)}`;
+      } else if (type === 'biggest_score') {
+        description += `\nGlobal avg biggest score: ${Number(averages.avg_biggest_score).toFixed(0)}`;
       }
 
+      const embedTitle = `Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}`;
       const embed = new EmbedBuilder()
         .setTitle(`Leaderboard — ${typeNames[type]}`)
         .setDescription(description)
