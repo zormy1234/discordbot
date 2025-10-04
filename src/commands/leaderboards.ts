@@ -13,7 +13,7 @@ import { RowDataPacket } from 'mysql2/promise';
 export const data = new SlashCommandBuilder()
   .setName('tanks_leaderboard')
   .setDescription(
-    'Show top 50 players by highest score, kills, K/D, or avg K/D'
+    'Show top 50 players by highest score, kills, K/D, avg K/D, or total score'
   )
   .addStringOption((option) =>
     option
@@ -24,8 +24,15 @@ export const data = new SlashCommandBuilder()
         { name: 'Highest Score', value: 'highest_score' },
         { name: 'Highest Kills', value: 'highest_kills' },
         { name: 'Highest K/D', value: 'highest_kd' },
-        { name: 'Average K/D', value: 'avg_kd' }
+        { name: 'Average K/D', value: 'avg_kd' },
+        { name: 'Total Score', value: 'total_score' }
       )
+  )
+  .addStringOption((option) =>
+    option
+      .setName('clan')
+      .setDescription('Filter leaderboard by clan tag (optional)')
+      .setRequired(false)
   );
 
 const typeNames: Record<string, string> = {
@@ -33,72 +40,108 @@ const typeNames: Record<string, string> = {
   highest_kills: 'Highest Kills',
   highest_kd: 'Highest K/D',
   avg_kd: 'Average K/D (min 2 games played)',
+  total_score: 'Total Score', 
 };
+
+interface LeaderboardRow extends RowDataPacket {
+    gid: number;
+    recent_name: string;
+    recent_clan_tag: string | null;
+    highest_score?: number;
+    highest_kills?: number;
+    highest_kd?: number;
+    avg_kd?: number;
+    total_score?: number;
+    num_entries?: number;
+  }
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: false });
 
   try {
     const type = interaction.options.getString('type', true);
+    const clan = interaction.options.getString('clan')?.trim() || null;
 
-    // Change this query to include a WHERE clause only for avg_kd
+    let query = '';
+    const params: any[] = [];
+
+    // Base query
+    if (type === 'avg_kd') {
+      query = `
+          SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
+          FROM tanks_totals
+          WHERE num_entries >= 2
+        `;
+    } else if (type === 'total_score') {
+      // ✅ NEW QUERY FOR TOTAL SCORE
+      query = `
+          SELECT gid, recent_name, recent_clan_tag, total_score
+          FROM tanks_totals
+          WHERE total_score IS NOT NULL
+        `;
+    } else {
+      query = `
+          SELECT gid, recent_name, recent_clan_tag, highest_score, highest_kills, highest_kd
+          FROM tanks_totals
+          WHERE 1=1
+        `;
+    }
+
+    if (clan) {
+      query += ` AND recent_clan_tag = ?`;
+      params.push(clan);
+    }
+
+    query += ` ORDER BY ${type} DESC LIMIT 50`;
+
+    // Execute leaderboard query
     const [rows] = (await connection.execute<RowDataPacket[]>(
-      type === 'avg_kd'
-        ? `SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
-         FROM tanks_totals
-         WHERE num_entries >= 2
-         ORDER BY avg_kd DESC
-         LIMIT 50`
-        : `SELECT gid, recent_name, recent_clan_tag, highest_score, highest_kills, highest_kd
-         FROM tanks_totals
-         ORDER BY ${type} DESC
-         LIMIT 50`
-    )) as RowDataPacket[];
+      query,
+      params
+    )) as [LeaderboardRow[], any];
 
-    // 2. Fetch global averages
+    // Fetch global averages (still helpful for context)
     const [avgRows] = (await connection.execute<RowDataPacket[]>(
       `SELECT
-        AVG(highest_score) AS avg_highest_score,
-        AVG(highest_kills) AS avg_highest_kills,
-        AVG(highest_kd) AS avg_highest_kd,
-        AVG(avg_kd) AS avg_avg_kd
-     FROM tanks_totals
-     WHERE num_entries >= 2`
-    )) as RowDataPacket[];
+          AVG(highest_score) AS avg_highest_score,
+          AVG(highest_kills) AS avg_highest_kills,
+          AVG(highest_kd) AS avg_highest_kd,
+          AVG(avg_kd) AS avg_avg_kd,
+          AVG(total_score) AS avg_total_score
+        FROM tanks_totals
+        WHERE num_entries >= 2`
+    )) as [LeaderboardRow[], any];
 
     const averages = avgRows[0];
 
-    if (!rows.length) return interaction.editReply('❌ No data found.');
+    if (!rows.length) {
+      return interaction.editReply(
+        clan ? `❌ No data found for clan **${clan}**.` : '❌ No data found.'
+      );
+    }
 
-    // Prepare pages
+    // ✅ Prepare pages
     const pages: EmbedBuilder[] = [];
     for (let i = 0; i < rows.length; i += 10) {
       const pageRows = rows.slice(i, i + 10);
       let description = '';
-      pageRows.forEach(
-        (
-          r: {
-            highest_score: any;
-            highest_kills: any;
-            highest_kd: any;
-            avg_kd: any;
-            recent_clan_tag: any;
-            recent_name: any;
-          },
-          idx: number
-        ) => {
-          const value = (() => {
-            switch (type) {
-              case 'highest_score':
-                return Number(r.highest_score).toLocaleString();
-              case 'highest_kills':
-                return Number(r.highest_kills).toLocaleString();
-              case 'highest_kd':
-                return Number(r.highest_kd).toFixed(2);
-              case 'avg_kd':
-                return Number(r.avg_kd).toFixed(2);
-            }
-          })();
+
+      pageRows.forEach((r, idx) => {
+        const value = (() => {
+          switch (type) {
+            case 'highest_score':
+              return Number(r.highest_score).toLocaleString();
+            case 'highest_kills':
+              return Number(r.highest_kills).toLocaleString();
+            case 'highest_kd':
+              return Number(r.highest_kd).toFixed(2);
+            case 'avg_kd':
+              return Number(r.avg_kd).toFixed(2);
+            case 'total_score':
+              return Number(r.total_score).toLocaleString();
+          }
+        })();
+
           const name = r.recent_clan_tag
             ? `[${r.recent_clan_tag}] ${r.recent_name}`
             : r.recent_name;
@@ -107,17 +150,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       );
 
       if (type === 'avg_kd') {
-        description += `\nGlobal avg K/D (players with ≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
+        description += `\nGlobal avg K/D (≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
       } else if (type === 'highest_score') {
         description += `\nGlobal avg highest score: ${averages.avg_highest_score.toFixed(0)}`;
       } else if (type === 'highest_kills') {
         description += `\nGlobal avg highest kills: ${Number(averages.avg_highest_kills).toFixed(0)}`;
       } else if (type === 'highest_kd') {
         description += `\nGlobal avg highest K/D: ${averages.avg_highest_kd.toFixed(2)}`;
+      } else if (type === 'total_score') {
+        description += `\nGlobal avg total score: ${Number(averages.avg_total_score).toFixed(0)}`;
       }
 
       const embed = new EmbedBuilder()
-        .setTitle(`Leaderboard — ${typeNames[type]}`)
+        .setTitle(
+          `Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}`
+        )
         .setDescription(description)
         .setColor(0x008494)
         .setFooter({
@@ -128,7 +175,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     let currentPage = 0;
-
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId('prev')

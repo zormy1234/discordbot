@@ -2,45 +2,74 @@ import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Comp
 import connection from '../database/connect.js';
 export const data = new SlashCommandBuilder()
     .setName('tanks_leaderboard')
-    .setDescription('Show top 50 players by highest score, kills, K/D, or avg K/D')
+    .setDescription('Show top 50 players by highest score, kills, K/D, avg K/D, or total score')
     .addStringOption((option) => option
     .setName('type')
     .setDescription('Leaderboard type')
     .setRequired(true)
-    .addChoices({ name: 'Highest Score', value: 'highest_score' }, { name: 'Highest Kills', value: 'highest_kills' }, { name: 'Highest K/D', value: 'highest_kd' }, { name: 'Average K/D', value: 'avg_kd' }));
+    .addChoices({ name: 'Highest Score', value: 'highest_score' }, { name: 'Highest Kills', value: 'highest_kills' }, { name: 'Highest K/D', value: 'highest_kd' }, { name: 'Average K/D', value: 'avg_kd' }, { name: 'Total Score', value: 'total_score' }))
+    .addStringOption((option) => option
+    .setName('clan')
+    .setDescription('Filter leaderboard by clan tag (optional)')
+    .setRequired(false));
 const typeNames = {
     highest_score: 'Highest Score',
     highest_kills: 'Highest Kills',
     highest_kd: 'Highest K/D',
     avg_kd: 'Average K/D (min 2 games played)',
+    total_score: 'Total Score',
 };
 export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: false });
     try {
         const type = interaction.options.getString('type', true);
-        // Change this query to include a WHERE clause only for avg_kd
-        const [rows] = (await connection.execute(type === 'avg_kd'
-            ? `SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
-         FROM tanks_totals
-         WHERE num_entries >= 2
-         ORDER BY avg_kd DESC
-         LIMIT 50`
-            : `SELECT gid, recent_name, recent_clan_tag, highest_score, highest_kills, highest_kd
-         FROM tanks_totals
-         ORDER BY ${type} DESC
-         LIMIT 50`));
-        // 2. Fetch global averages
+        const clan = interaction.options.getString('clan')?.trim() || null;
+        let query = '';
+        const params = [];
+        // Base query
+        if (type === 'avg_kd') {
+            query = `
+          SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
+          FROM tanks_totals
+          WHERE num_entries >= 2
+        `;
+        }
+        else if (type === 'total_score') {
+            // ✅ NEW QUERY FOR TOTAL SCORE
+            query = `
+          SELECT gid, recent_name, recent_clan_tag, total_score
+          FROM tanks_totals
+          WHERE total_score IS NOT NULL
+        `;
+        }
+        else {
+            query = `
+          SELECT gid, recent_name, recent_clan_tag, highest_score, highest_kills, highest_kd
+          FROM tanks_totals
+          WHERE 1=1
+        `;
+        }
+        if (clan) {
+            query += ` AND recent_clan_tag = ?`;
+            params.push(clan);
+        }
+        query += ` ORDER BY ${type} DESC LIMIT 50`;
+        // Execute leaderboard query
+        const [rows] = (await connection.execute(query, params));
+        // Fetch global averages (still helpful for context)
         const [avgRows] = (await connection.execute(`SELECT
-        AVG(highest_score) AS avg_highest_score,
-        AVG(highest_kills) AS avg_highest_kills,
-        AVG(highest_kd) AS avg_highest_kd,
-        AVG(avg_kd) AS avg_avg_kd
-     FROM tanks_totals
-     WHERE num_entries >= 2`));
+          AVG(highest_score) AS avg_highest_score,
+          AVG(highest_kills) AS avg_highest_kills,
+          AVG(highest_kd) AS avg_highest_kd,
+          AVG(avg_kd) AS avg_avg_kd,
+          AVG(total_score) AS avg_total_score
+        FROM tanks_totals
+        WHERE num_entries >= 2`));
         const averages = avgRows[0];
-        if (!rows.length)
-            return interaction.editReply('❌ No data found.');
-        // Prepare pages
+        if (!rows.length) {
+            return interaction.editReply(clan ? `❌ No data found for clan **${clan}**.` : '❌ No data found.');
+        }
+        // ✅ Prepare pages
         const pages = [];
         for (let i = 0; i < rows.length; i += 10) {
             const pageRows = rows.slice(i, i + 10);
@@ -56,6 +85,8 @@ export async function execute(interaction) {
                             return Number(r.highest_kd).toFixed(2);
                         case 'avg_kd':
                             return Number(r.avg_kd).toFixed(2);
+                        case 'total_score':
+                            return Number(r.total_score).toLocaleString();
                     }
                 })();
                 const name = r.recent_clan_tag
@@ -64,7 +95,7 @@ export async function execute(interaction) {
                 description += `${i + idx + 1}. ${name} — ${value}\n`;
             });
             if (type === 'avg_kd') {
-                description += `\nGlobal avg K/D (players with ≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
+                description += `\nGlobal avg K/D (≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
             }
             else if (type === 'highest_score') {
                 description += `\nGlobal avg highest score: ${averages.avg_highest_score.toFixed(0)}`;
@@ -75,8 +106,11 @@ export async function execute(interaction) {
             else if (type === 'highest_kd') {
                 description += `\nGlobal avg highest K/D: ${averages.avg_highest_kd.toFixed(2)}`;
             }
+            else if (type === 'total_score') {
+                description += `\nGlobal avg total score: ${Number(averages.avg_total_score).toFixed(0)}`;
+            }
             const embed = new EmbedBuilder()
-                .setTitle(`Leaderboard — ${typeNames[type]}`)
+                .setTitle(`Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}`)
                 .setDescription(description)
                 .setColor(0x008494)
                 .setFooter({
