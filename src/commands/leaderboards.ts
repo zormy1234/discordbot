@@ -120,7 +120,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       );
     }
 
-    // ✅ Prepare pages
     const pages: EmbedBuilder[] = [];
     for (let i = 0; i < rows.length; i += 10) {
       const pageRows = rows.slice(i, i + 10);

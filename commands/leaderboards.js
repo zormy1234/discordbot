@@ -69,7 +69,6 @@ export async function execute(interaction) {
         if (!rows.length) {
             return interaction.editReply(clan ? `❌ No data found for clan **${clan}**.` : '❌ No data found.');
         }
-        // ✅ Prepare pages
         const pages = [];
         for (let i = 0; i < rows.length; i += 10) {
             const pageRows = rows.slice(i, i + 10);

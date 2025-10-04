@@ -27,7 +27,7 @@ export async function storeInDb(
         },
       });
     } catch (e) {
-      console.error('writeWinLog failed:', e instanceof Error ? e.message : e);
+      console.error('writeWinLog failed:', line.raw, e instanceof Error ? e.message : e);
     }
 
     if (line.parsed == undefined) continue;
@@ -53,6 +53,7 @@ export async function storeInDb(
     } catch (e) {
       console.error(
         'store tanks history failed:',
+        line.parsed,
         e instanceof Error ? e.message : e
       );
     }
@@ -116,6 +117,7 @@ export async function storeInDb(
     } catch (e) {
       console.error(
         'store tanks totals failed:',
+        line.parsed,
         e instanceof Error ? e.message : e
       );
     }
@@ -141,7 +143,7 @@ export async function storeInDb(
         [gid, weekStart, kills, deaths, score, rank, score, rank]
       );
     } catch (e) {
-      console.error('store weekly failed:', e instanceof Error ? e.message : e);
+      console.error('store weekly failed:',line.parsed, e instanceof Error ? e.message : e);
     }
   }
 }
