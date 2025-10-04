@@ -19,7 +19,7 @@ export async function storeInDb(lines, message) {
             });
         }
         catch (e) {
-            console.error('writeWinLog failed:', line.raw, e instanceof Error ? e.message : e);
+            console.error('writeWinLog failed:', JSON.stringify(line.parsed), e instanceof Error ? e.message : e);
         }
         if (line.parsed == undefined)
             continue;
@@ -40,7 +40,7 @@ export async function storeInDb(lines, message) {
             ]);
         }
         catch (e) {
-            console.error('store tanks history failed:', line.parsed, e instanceof Error ? e.message : e);
+            console.error('store tanks history failed:', JSON.stringify(line.parsed), e instanceof Error ? e.message : e);
         }
         try {
             // Totals
@@ -97,7 +97,7 @@ export async function storeInDb(lines, message) {
             ]);
         }
         catch (e) {
-            console.error('store tanks totals failed:', line.parsed, e instanceof Error ? e.message : e);
+            console.error('store tanks totals failed:', JSON.stringify(line.parsed), e instanceof Error ? e.message : e);
         }
         try {
             // Weekly stats
