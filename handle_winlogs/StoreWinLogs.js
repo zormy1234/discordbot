@@ -1,5 +1,6 @@
 import connection from '../database/connect.js';
 import { writeWinLog, connection as sharedConnection, } from '../database/SharedConnect.js';
+import { enqueuePrivateDb, enqueueSharedDb } from '../database/dbQueue.js';
 export async function storeInDb(lines, message) {
     for (const line of lines) {
         // Always log the raw line
@@ -26,7 +27,7 @@ export async function storeInDb(lines, message) {
         const { rank, gid, clan, username, score, kills, deaths } = line.parsed;
         const ts = message.createdAt;
         try {
-            await sharedConnection.execute(`INSERT INTO tanks_history
+            await enqueueSharedDb(() => sharedConnection.execute(`INSERT INTO tanks_history
           (gid, username, clan_tag, rank, score, kills, deaths, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
                 gid,
@@ -37,14 +38,14 @@ export async function storeInDb(lines, message) {
                 kills,
                 deaths,
                 ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
-            ]);
+            ]));
         }
         catch (e) {
             console.error('store tanks history failed:', JSON.stringify(line.parsed), e instanceof Error ? e.message : e);
         }
         try {
             // Totals
-            await connection.execute(`INSERT INTO tanks_totals
+            await enqueuePrivateDb(() => connection.execute(`INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
               highest_score, highest_kd, highest_kills, highest_deaths,
               number_top5, number_top20,
@@ -94,7 +95,7 @@ export async function storeInDb(lines, message) {
                 username,
                 clan,
                 ts,
-            ]);
+            ]));
         }
         catch (e) {
             console.error('store tanks totals failed:', JSON.stringify(line.parsed), e instanceof Error ? e.message : e);
@@ -104,7 +105,7 @@ export async function storeInDb(lines, message) {
             const weekStart = new Date(ts);
             weekStart.setUTCHours(0, 0, 0, 0);
             weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
-            await connection.execute(`INSERT INTO tanks_weekly
+            await enqueuePrivateDb(() => connection.execute(`INSERT INTO tanks_weekly
        (gid, week_start, kills, deaths, score, total_rank, num_entries, avg_score, avg_rank)
        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
        ON DUPLICATE KEY UPDATE
@@ -114,7 +115,7 @@ export async function storeInDb(lines, message) {
          total_rank = total_rank + VALUES(total_rank),
          num_entries = num_entries + 1,
          avg_score = (score + VALUES(score)) / (num_entries + 1),
-         avg_rank = (total_rank + VALUES(total_rank)) / (num_entries + 1)`, [gid, weekStart, kills, deaths, score, rank, score, rank]);
+         avg_rank = (total_rank + VALUES(total_rank)) / (num_entries + 1)`, [gid, weekStart, kills, deaths, score, rank, score, rank]));
         }
         catch (e) {
             console.error('store weekly failed:', line.parsed, e instanceof Error ? e.message : e);

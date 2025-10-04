@@ -5,6 +5,7 @@ import {
   connection as sharedConnection,
 } from '../database/SharedConnect.js';
 import { RawWithParsed } from './ReceiveWinlogs.js';
+import { enqueuePrivateDb, enqueueSharedDb } from '../database/dbQueue.js';
 
 export async function storeInDb(
   lines: RawWithParsed[],
@@ -39,7 +40,7 @@ export async function storeInDb(
     const ts = message.createdAt;
 
     try {
-      await sharedConnection.execute(
+      await enqueueSharedDb(() => sharedConnection.execute(
         `INSERT INTO tanks_history
           (gid, username, clan_tag, rank, score, kills, deaths, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -53,7 +54,7 @@ export async function storeInDb(
           deaths,
           ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
         ]
-      );
+      ));
     } catch (e) {
       console.error(
         'store tanks history failed:',
@@ -64,8 +65,9 @@ export async function storeInDb(
 
     try {
       // Totals
-      await connection.execute(
-        `INSERT INTO tanks_totals
+      await enqueuePrivateDb(() =>
+        connection.execute(
+          `INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
               highest_score, highest_kd, highest_kills, highest_deaths,
               number_top5, number_top20,
@@ -99,24 +101,25 @@ export async function storeInDb(
             recent_name = VALUES(recent_name),
             recent_clan_tag = VALUES(recent_clan_tag),
             last_entry = VALUES(last_entry);`,
-        [
-          gid,
-          kills,
-          deaths,
-          score,
-          rank,
-          score, // highest_score candidate
-          deaths > 0 ? kills / deaths : kills, // highest_kd candidate
-          kills, // highest_kills candidate
-          deaths, // highest_deaths candidate
-          rank <= 5 ? 1 : 0, // number_top5 initial
-          rank <= 20 ? 1 : 0, // number_top20 initial
-          deaths > 0 ? kills / deaths : kills, // avg_kd initial
-          username,
-          username,
-          clan,
-          ts,
-        ]
+          [
+            gid,
+            kills,
+            deaths,
+            score,
+            rank,
+            score, // highest_score candidate
+            deaths > 0 ? kills / deaths : kills, // highest_kd candidate
+            kills, // highest_kills candidate
+            deaths, // highest_deaths candidate
+            rank <= 5 ? 1 : 0, // number_top5 initial
+            rank <= 20 ? 1 : 0, // number_top20 initial
+            deaths > 0 ? kills / deaths : kills, // avg_kd initial
+            username,
+            username,
+            clan,
+            ts,
+          ]
+        )
       );
     } catch (e) {
       console.error(
@@ -132,8 +135,9 @@ export async function storeInDb(
       weekStart.setUTCHours(0, 0, 0, 0);
       weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
 
-      await connection.execute(
-        `INSERT INTO tanks_weekly
+      await enqueuePrivateDb(() =>
+        connection.execute(
+          `INSERT INTO tanks_weekly
        (gid, week_start, kills, deaths, score, total_rank, num_entries, avg_score, avg_rank)
        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
        ON DUPLICATE KEY UPDATE
@@ -144,7 +148,8 @@ export async function storeInDb(
          num_entries = num_entries + 1,
          avg_score = (score + VALUES(score)) / (num_entries + 1),
          avg_rank = (total_rank + VALUES(total_rank)) / (num_entries + 1)`,
-        [gid, weekStart, kills, deaths, score, rank, score, rank]
+          [gid, weekStart, kills, deaths, score, rank, score, rank]
+        )
       );
     } catch (e) {
       console.error(

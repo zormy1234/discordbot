@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 import handleWinlogs from './handle_winlogs/ReceiveWinlogs.js';
 import './database/PrivateDbTables.js'
 import './database/SharedDbTables.js'
+import { enqueuePrivateDb } from './database/dbQueue.js';
 
 // __dirname replacement for ES Modules
 const __filename = fileURLToPath(import.meta.url);
