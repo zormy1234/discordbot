@@ -31,7 +31,7 @@ export async function storeInDb(
       console.error(
         'writeWinLog failed:',
         JSON.stringify(line.parsed),
-        e instanceof Error ? e.message : e
+        e
       );
     }
 
@@ -59,7 +59,7 @@ export async function storeInDb(
       console.error(
         'store tanks history failed:',
         JSON.stringify(line.parsed),
-        e instanceof Error ? e.message : e
+        e
       );
     }
 
@@ -125,7 +125,7 @@ export async function storeInDb(
       console.error(
         'store tanks totals failed:',
         JSON.stringify(line.parsed),
-        e instanceof Error ? e.message : e
+        e
       );
     }
 
@@ -155,7 +155,7 @@ export async function storeInDb(
       console.error(
         'store weekly failed:',
         line.parsed,
-        e instanceof Error ? e.message : e
+        e
       );
     }
   }
