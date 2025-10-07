@@ -75,6 +75,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
     }
 });
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('💥 Uncaught exception:', err.stack || err);
+});
 // Register forwarder
 handleWinlogs(client);
 // Log in

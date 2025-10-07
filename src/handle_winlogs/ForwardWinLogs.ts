@@ -8,7 +8,11 @@ import {
   ThreadChannel,
 } from 'discord.js';
 import connection, { DBRow } from '../database/connect.js';
-import { ParsedLine, RawWithParsed as RawWithParsed } from './ReceiveWinlogs.js';
+import {
+  ParsedLine,
+  RawWithParsed as RawWithParsed,
+} from './ReceiveWinlogs.js';
+import { enqueuePrivateDb, enqueueSharedDb } from '../database/dbQueue.js';
 
 interface ClanDiscordDetailsRow extends DBRow {
   guild_id: string;
@@ -20,51 +24,61 @@ export default async function forwardWinlogs(
   client: Client,
   lines: RawWithParsed[]
 ): Promise<void> {
-  const [rows] = await connection.execute<ClanDiscordDetailsRow[]>(
-    `SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
+  try {
+    const result = await enqueuePrivateDb(() =>
+      connection.execute<ClanDiscordDetailsRow[]>(
+        `SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
        FROM clan_discord_details
        WHERE tanks_clan_tag IS NOT NULL AND tanks_clan_tag != ''`
-  );
+      )
+    );
 
-  const clanMap = new Map<
-    string,
-    { guildId: string; winlogChannelId: string }[]
-  >();
+    if (Array.isArray(result)) {
+      const [rows] = result;
 
-  for (const row of rows) {
-    if (!clanMap.has(row.tanks_clan_tag)) {
-      clanMap.set(row.tanks_clan_tag, []);
-    }
-    clanMap.get(row.tanks_clan_tag)!.push({
-      guildId: row.guild_id,
-      winlogChannelId: row.tanks_winlog_channel_id,
-    });
-  }
+      const clanMap = new Map<
+        string,
+        { guildId: string; winlogChannelId: string }[]
+      >();
 
-  for (const line of lines) {
-    if (line.parsed == undefined) return;
+      for (const row of rows) {
+        if (!clanMap.has(row.tanks_clan_tag)) {
+          clanMap.set(row.tanks_clan_tag, []);
+        }
+        clanMap.get(row.tanks_clan_tag)!.push({
+          guildId: row.guild_id,
+          winlogChannelId: row.tanks_winlog_channel_id,
+        });
+      }
 
-    const clanTag = line.parsed?.clan;
-    if (!clanTag || clanTag == '') continue;
+      for (const line of lines) {
+        if (line.parsed == undefined) return;
 
-    const clanDetails = clanMap.get(clanTag);
-    if (!clanDetails) continue;
+        const clanTag = line.parsed?.clan;
+        if (!clanTag || clanTag == '') continue;
 
-    for (const row of clanDetails) {
-      const guild = client.guilds.cache.get(row.guildId);
-      if (!guild) continue;
+        const clanDetails = clanMap.get(clanTag);
+        if (!clanDetails) continue;
 
-      const channel = guild.channels.cache.get(row.winlogChannelId) as
-        | GuildBasedChannel
-        | undefined;
+        for (const row of clanDetails) {
+          const guild = client.guilds.cache.get(row.guildId);
+          if (!guild) continue;
 
-      if (channel && channel.isTextBased()) {
-        const winlogChannel = channel as
-          | TextChannel
-          | NewsChannel
-          | ThreadChannel;
-        await winlogChannel.send(`\`\`\`\n${line.raw}\n\`\`\``);
+          const channel = guild.channels.cache.get(row.winlogChannelId) as
+            | GuildBasedChannel
+            | undefined;
+
+          if (channel && channel.isTextBased()) {
+            const winlogChannel = channel as
+              | TextChannel
+              | NewsChannel
+              | ThreadChannel;
+            await winlogChannel.send(`\`\`\`\n${line.raw}\n\`\`\``);
+          }
+        }
       }
     }
+  } catch (e) {
+    console.error('forward winlogs failed', e);
   }
 }
