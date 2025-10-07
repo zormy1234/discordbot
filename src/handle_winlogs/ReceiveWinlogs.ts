@@ -87,5 +87,6 @@ export default function handleWinlogs(client: Client) {
 
     await forwardWinlogs(client, lines);
     await storeInDb(lines, message);
+    console.log(`recieved handling line starting with line ${lines[0].raw}`)
   });
 }
