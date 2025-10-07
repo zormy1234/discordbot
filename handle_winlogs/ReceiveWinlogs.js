@@ -54,7 +54,7 @@ export default function handleWinlogs(client) {
             return;
         }
         console.log(`recieved message on channel starting with line ${lines[0].raw}`);
-        await storeInDb(lines, message);
         await forwardWinlogs(client, lines);
+        await storeInDb(lines, message);
     });
 }
