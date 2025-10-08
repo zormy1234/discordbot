@@ -26,12 +26,10 @@ export default async function forwardWinlogs(
 ): Promise<void> {
   console.log('attempting to forward winlogs');
   try {
-    const result = await enqueuePrivateDb('query clan details', () =>
-      connection.execute<ClanDiscordDetailsRow[]>(
-        `SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
+    const result = await connection.execute<ClanDiscordDetailsRow[]>(
+      `SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
         FROM clan_discord_details
         WHERE tanks_clan_tag IS NOT NULL AND tanks_clan_tag != ''`
-      )
     );
 
     if (Array.isArray(result)) {
@@ -41,7 +39,7 @@ export default async function forwardWinlogs(
         string,
         { guildId: string; winlogChannelId: string }[]
       >();
-      console.log(`attempting to forward winlogs for clans ${clanMap}`);
+      console.log(`attempting to forward winlogs for clans ${clanMap.keys}`);
 
       for (const row of rows) {
         if (!clanMap.has(row.tanks_clan_tag)) {

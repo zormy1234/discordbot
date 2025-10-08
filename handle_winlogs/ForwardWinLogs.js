@@ -1,15 +1,14 @@
 import connection from '../database/connect.js';
-import { enqueuePrivateDb } from '../database/dbQueue.js';
 export default async function forwardWinlogs(client, lines) {
     console.log('attempting to forward winlogs');
     try {
-        const result = await enqueuePrivateDb('query clan details', () => connection.execute(`SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
+        const result = await connection.execute(`SELECT guild_id, tanks_clan_tag, tanks_winlog_channel_id 
         FROM clan_discord_details
-        WHERE tanks_clan_tag IS NOT NULL AND tanks_clan_tag != ''`));
+        WHERE tanks_clan_tag IS NOT NULL AND tanks_clan_tag != ''`);
         if (Array.isArray(result)) {
             const [rows] = result;
             const clanMap = new Map();
-            console.log(`attempting to forward winlogs for clans ${clanMap}`);
+            console.log(`attempting to forward winlogs for clans ${clanMap.keys}`);
             for (const row of rows) {
                 if (!clanMap.has(row.tanks_clan_tag)) {
                     clanMap.set(row.tanks_clan_tag, []);

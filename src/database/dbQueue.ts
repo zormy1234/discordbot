@@ -15,8 +15,6 @@ export const logsDbQueue = new PQueue({
   carryoverConcurrencyCount: true,
 });
 
-// Helper wrappers
-// Helper wrappers
 export async function enqueuePrivateDb<T>(
   name: string,
   fn: () => Promise<T>,

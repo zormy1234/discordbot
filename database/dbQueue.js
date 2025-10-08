@@ -13,8 +13,6 @@ export const logsDbQueue = new PQueue({
     intervalCap: 4, // at most 3 queries per second
     carryoverConcurrencyCount: true,
 });
-// Helper wrappers
-// Helper wrappers
 export async function enqueuePrivateDb(name, fn, maxRetries = 3) {
     return enqueWithRetries(maxRetries, fn, name, mainDbQueue);
 }
