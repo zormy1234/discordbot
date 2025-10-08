@@ -18,7 +18,7 @@ export const logsDbQueue = new PQueue({
 // Helper wrappers
 // Helper wrappers
 export async function enqueuePrivateDb<T>(
-  name: String,
+  name: string,
   fn: () => Promise<T>,
   maxRetries = 3
 ) {
@@ -26,7 +26,7 @@ export async function enqueuePrivateDb<T>(
 }
 
 export async function enqueueSharedDb<T>(
-  name: String,
+  name: string,
   fn: () => Promise<T>,
   maxRetries = 3
 ) {
@@ -38,12 +38,12 @@ setInterval(() => {
   console.log(
     `[DB Queue] size: ${mainDbQueue.size}, pending: ${mainDbQueue.pending}`
   );
-}, 500000);
+}, 50000);
 
 function enqueWithRetries<T>(
   maxRetries: number,
   fn: () => Promise<T>,
-  name: String,
+  name: string,
   dbQueue: PQueue
 ) {
   return dbQueue.add(async () => {
@@ -77,6 +77,5 @@ function enqueWithRetries<T>(
 
     // All retries failed
     console.error('💥 DB operation failed after retries:', name, lastError);
-    throw lastError;
   });
 }

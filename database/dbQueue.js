@@ -24,7 +24,7 @@ export async function enqueueSharedDb(name, fn, maxRetries = 3) {
 // Monitor DB queue size every 5s
 setInterval(() => {
     console.log(`[DB Queue] size: ${mainDbQueue.size}, pending: ${mainDbQueue.pending}`);
-}, 500000);
+}, 50000);
 function enqueWithRetries(maxRetries, fn, name, dbQueue) {
     return dbQueue.add(async () => {
         let lastError;
@@ -50,6 +50,5 @@ function enqueWithRetries(maxRetries, fn, name, dbQueue) {
         }
         // All retries failed
         console.error('💥 DB operation failed after retries:', name, lastError);
-        throw lastError;
     });
 }
