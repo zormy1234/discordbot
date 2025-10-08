@@ -15,8 +15,18 @@ export const logsDbQueue = new PQueue({
 });
 // Helper wrappers
 // Helper wrappers
-export async function enqueuePrivateDb(fn, maxRetries = 3) {
-    return mainDbQueue.add(async () => {
+export async function enqueuePrivateDb(name, fn, maxRetries = 3) {
+    return enqueWithRetries(maxRetries, fn, name, mainDbQueue);
+}
+export async function enqueueSharedDb(name, fn, maxRetries = 3) {
+    return enqueWithRetries(maxRetries, fn, name, logsDbQueue);
+}
+// Monitor DB queue size every 5s
+setInterval(() => {
+    console.log(`[DB Queue] size: ${mainDbQueue.size}, pending: ${mainDbQueue.pending}`);
+}, 500000);
+function enqueWithRetries(maxRetries, fn, name, dbQueue) {
+    return dbQueue.add(async () => {
         let lastError;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
@@ -28,25 +38,18 @@ export async function enqueuePrivateDb(fn, maxRetries = 3) {
                 // Handle timeouts or transient network errors
                 if (err instanceof Error &&
                     (err.name === 'TimeoutError' || err.message.includes('ETIMEDOUT'))) {
-                    console.warn(`⏳ DB timeout, retrying attempt ${attempt}/${maxRetries}...`);
+                    console.warn(`⏳ DB timeout, retrying attempt ${attempt}/${maxRetries} for ${name}`);
                     // exponential backoff
                     await new Promise((r) => setTimeout(r, 1000 * attempt));
                     continue;
                 }
                 // For other SQL / pool errors, break immediately
-                console.error('❌ DB error (non-timeout):', err);
+                console.error('❌ DB error (non-timeout):', name, err);
                 break;
             }
         }
         // All retries failed
-        console.error('💥 DB operation failed after retries:', lastError);
+        console.error('💥 DB operation failed after retries:', name, lastError);
         throw lastError;
     });
-}
-// Monitor DB queue size every 5s
-setInterval(() => {
-    console.log(`[DB Queue] size: ${mainDbQueue.size}, pending: ${mainDbQueue.pending}`);
-}, 500000);
-export async function enqueueSharedDb(fn) {
-    return logsDbQueue.add(fn);
 }

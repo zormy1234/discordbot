@@ -40,7 +40,7 @@ export async function storeInDb(
     const ts = message.createdAt;
 
     try {
-      await enqueueSharedDb(() => sharedConnection.execute(
+      await enqueueSharedDb("tanks_history insert", () => sharedConnection.execute(
         `INSERT INTO tanks_history
           (gid, username, clan_tag, rank, score, kills, deaths, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -65,7 +65,7 @@ export async function storeInDb(
 
     try {
       // Totals
-      await enqueuePrivateDb(() =>
+      await enqueuePrivateDb("tanks_totals insert", () =>
         connection.execute(
           `INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
@@ -135,7 +135,7 @@ export async function storeInDb(
       weekStart.setUTCHours(0, 0, 0, 0);
       weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
 
-      await enqueuePrivateDb(() =>
+      await enqueuePrivateDb("tanks_weekly insert",() =>
         connection.execute(
           `INSERT INTO tanks_weekly
        (gid, week_start, kills, deaths, score, total_rank, num_entries, avg_score, avg_rank)

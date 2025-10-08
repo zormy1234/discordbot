@@ -27,7 +27,7 @@ export async function storeInDb(lines, message) {
         const { rank, gid, clan, username, score, kills, deaths } = line.parsed;
         const ts = message.createdAt;
         try {
-            await enqueueSharedDb(() => sharedConnection.execute(`INSERT INTO tanks_history
+            await enqueueSharedDb("tanks_history insert", () => sharedConnection.execute(`INSERT INTO tanks_history
           (gid, username, clan_tag, rank, score, kills, deaths, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
                 gid,
@@ -45,7 +45,7 @@ export async function storeInDb(lines, message) {
         }
         try {
             // Totals
-            await enqueuePrivateDb(() => connection.execute(`INSERT INTO tanks_totals
+            await enqueuePrivateDb("tanks_totals insert", () => connection.execute(`INSERT INTO tanks_totals
               (gid, total_kills, total_deaths, total_score, total_rank, num_entries,
               highest_score, highest_kd, highest_kills, highest_deaths,
               number_top5, number_top20,
@@ -105,7 +105,7 @@ export async function storeInDb(lines, message) {
             const weekStart = new Date(ts);
             weekStart.setUTCHours(0, 0, 0, 0);
             weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
-            await enqueuePrivateDb(() => connection.execute(`INSERT INTO tanks_weekly
+            await enqueuePrivateDb("tanks_weekly insert", () => connection.execute(`INSERT INTO tanks_weekly
        (gid, week_start, kills, deaths, score, total_rank, num_entries, avg_score, avg_rank)
        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
        ON DUPLICATE KEY UPDATE

@@ -33,17 +33,21 @@ export async function writeWinLog(evt: {
   message: any;
   raw: any;
 }) {
-  const sql = `INSERT INTO win_logs (ts, level, source, host, message, raw_json)
+  try {
+    const sql = `INSERT INTO win_logs (ts, level, source, host, message, raw_json)
              VALUES (NOW(3), ?, ?, ?, ?, ?)`;
-  const raw =
-    typeof evt.raw === 'string' ? evt.raw : JSON.stringify(evt.raw ?? {});
-  await enqueueSharedDb(() =>
-    connection.execute(sql, [
-      evt.level ?? null,
-      evt.source ?? null,
-      evt.host ?? null,
-      evt.message ?? null,
-      raw,
-    ])
-  );
+    const raw =
+      typeof evt.raw === 'string' ? evt.raw : JSON.stringify(evt.raw ?? {});
+    await enqueueSharedDb('writeWinLogs', () =>
+      connection.execute(sql, [
+        evt.level ?? null,
+        evt.source ?? null,
+        evt.host ?? null,
+        evt.message ?? null,
+        raw,
+      ])
+    );
+  } catch (err) {
+    console.error('⚠️ writeWinLog internal failure:', err);
+  }
 }
