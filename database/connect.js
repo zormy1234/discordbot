@@ -10,7 +10,9 @@ const poolOptions = {
     waitForConnections: true,
     connectionLimit: 5,
     multipleStatements: true,
-    connectTimeout: 60000,
+    connectTimeout: 30000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 30000,
 };
 const connection = mysql.createPool(poolOptions);
 export default connection;

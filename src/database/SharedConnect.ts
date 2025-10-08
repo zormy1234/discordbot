@@ -15,10 +15,11 @@ const poolOptions: PoolOptions = {
   password: process.env.LOG_DB_PASS,
   database: process.env.LOG_DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10,
-  connectTimeout: 60000,
+  connectionLimit: 5,
+  multipleStatements: true,
+  connectTimeout: 20000,    
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
+  keepAliveInitialDelay: 30000, 
 };
 
 export const connection: Pool = mysql.createPool(poolOptions);
