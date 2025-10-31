@@ -31,7 +31,7 @@ export async function execute(interaction) {
             query = `
           SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
           FROM tanks_totals
-          WHERE num_entries >= 2
+          WHERE num_entries >= 5
         `;
         }
         else if (type === 'total_score') {
@@ -56,7 +56,7 @@ export async function execute(interaction) {
         query += ` ORDER BY ${type} DESC LIMIT 50`;
         // Execute leaderboard query
         const [rows] = (await connection.execute(query, params));
-        // Fetch global averages (still helpful for context)
+        // Fetch global averages 
         const [avgRows] = (await connection.execute(`SELECT
           AVG(highest_score) AS avg_highest_score,
           AVG(highest_kills) AS avg_highest_kills,
@@ -94,7 +94,7 @@ export async function execute(interaction) {
                 description += `${i + idx + 1}. ${name} — ${value}\n`;
             });
             if (type === 'avg_kd') {
-                description += `\nGlobal avg K/D (≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
+                description += `\nGlobal avg K/D (≥5 games): ${averages.avg_avg_kd.toFixed(2)}`;
             }
             else if (type === 'highest_score') {
                 description += `\nGlobal avg highest score: ${averages.avg_highest_score.toFixed(0)}`;

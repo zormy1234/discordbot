@@ -36,7 +36,7 @@ setInterval(() => {
   console.log(
     `[DB Queue] size: ${mainDbQueue.size}, pending: ${mainDbQueue.pending}`
   );
-}, 50000);
+}, 100000);
 
 function enqueWithRetries<T>(
   maxRetries: number,
