@@ -16,7 +16,7 @@ const typeNames = {
     highest_score: 'Highest Score',
     highest_kills: 'Highest Kills',
     highest_kd: 'Highest K/D',
-    avg_kd: 'Average K/D (min 2 games played)',
+    avg_kd: 'Average K/D (min 5 games played)',
     total_score: 'Total Score',
 };
 export async function execute(interaction) {
