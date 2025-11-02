@@ -3,7 +3,7 @@ import {
     SlashCommandBuilder,
     ChatInputCommandInteraction,
   } from "discord.js";
-  import { connection } from "../database/SharedConnect.js";
+  import connection from '../database/connect.js';
   import { parseShipsLine } from "../handle_winlogs/ReceiveWinlogs.js"; // same structure as parseLine
   import dayjs from "dayjs";
   
