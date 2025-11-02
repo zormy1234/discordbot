@@ -130,7 +130,7 @@ export async function storeInShipsDb(lines, message) {
         const { rank, gid, clan, username, score, kills, deaths } = line.parsed;
         const ts = message.createdAt;
         try {
-            await enqueueSharedDb('ships_history insert', () => sharedConnection.execute(`INSERT INTO ships_history
+            await enqueueSharedDb('ships_history insert', () => connection.execute(`INSERT INTO ships_history
             (gid, username, clan_tag, rank, kills, deaths, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)`, [
                 gid,

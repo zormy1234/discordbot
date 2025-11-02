@@ -167,7 +167,7 @@ export async function storeInShipsDb(
 
     try {
       await enqueueSharedDb('ships_history insert', () =>
-        sharedConnection.execute(
+        connection.execute(
           `INSERT INTO ships_history
             (gid, username, clan_tag, rank, kills, deaths, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
