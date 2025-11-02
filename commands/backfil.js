@@ -67,7 +67,11 @@ export async function execute(interaction) {
                   total_kills = total_kills + VALUES(total_kills),
                   total_deaths = total_deaths + VALUES(total_deaths),
                   num_entries = num_entries + 1,
-                  avg_kd = ((avg_kd * (num_entries - 1)) + VALUES(avg_kd)) / num_entries,
+                    avg_kd = CASE
+                                WHEN (VALUES(total_kills) = 0 AND VALUES(total_deaths) = 0)
+                                THEN avg_kd
+                                ELSE ((avg_kd * (num_entries - 1)) + VALUES(avg_kd)) / num_entries
+                            END,
                   highest_kd = GREATEST(highest_kd, VALUES(highest_kd)),
                   highest_kd_date = CASE WHEN VALUES(highest_kd) > highest_kd THEN VALUES(last_entry) ELSE highest_kd_date END,
                   highest_kd_kills = CASE WHEN VALUES(highest_kd) > highest_kd THEN VALUES(highest_kd_kills) ELSE highest_kd_kills END,

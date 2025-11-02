@@ -178,9 +178,11 @@ export async function storeInShipsDb(lines, message) {
                       total_kills = total_kills + VALUES(total_kills),
                       total_deaths = total_deaths + VALUES(total_deaths),
                       num_entries = num_entries + 1,
-                      avg_kd = (
-                          (avg_kd * (num_entries - 1)) + VALUES(highest_kd)
-                      ) / num_entries,
+                      avg_kd = CASE
+                                WHEN (VALUES(total_kills) = 0 AND VALUES(total_deaths) = 0)
+                                THEN avg_kd
+                                ELSE ((avg_kd * (num_entries - 1)) + VALUES(avg_kd)) / num_entries
+                            END,
             
                       -- Highest KD (per entry)
                       highest_kd = CASE WHEN VALUES(highest_kd) > highest_kd THEN VALUES(highest_kd) ELSE highest_kd END,
