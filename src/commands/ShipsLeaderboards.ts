@@ -12,9 +12,7 @@ import { RowDataPacket } from 'mysql2/promise';
 
 export const data = new SlashCommandBuilder()
   .setName('ships_leaderboard')
-  .setDescription(
-    'Show top 50 players by kills, K/D, avg K/D'
-  )
+  .setDescription('Show top 50 players by kills, K/D, avg K/D')
   .addStringOption((option) =>
     option
       .setName('type')
@@ -31,6 +29,14 @@ export const data = new SlashCommandBuilder()
       .setName('clan')
       .setDescription('Filter leaderboard by clan tag (optional)')
       .setRequired(false)
+  )
+  .addIntegerOption((option) =>
+    option
+      .setName('days')
+      .setDescription('Show data from the last N days (optional)')
+      .setRequired(false)
+      .setMinValue(1)
+      .setMaxValue(60)
   );
 
 const typeNames: Record<string, string> = {
@@ -40,14 +46,14 @@ const typeNames: Record<string, string> = {
 };
 
 interface LeaderboardRow extends RowDataPacket {
-    gid: number;
-    recent_name: string;
-    recent_clan_tag: string | null;
-    highest_kills?: number;
-    highest_kd?: number;
-    avg_kd?: number;
-    num_entries?: number;
-  }
+  gid: number;
+  recent_name: string;
+  recent_clan_tag: string | null;
+  highest_kills?: number;
+  highest_kd?: number;
+  avg_kd?: number;
+  num_entries?: number;
+}
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: false });
@@ -55,23 +61,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     const type = interaction.options.getString('type', true);
     const clan = interaction.options.getString('clan')?.trim() || null;
+    const days = interaction.options.getInteger('days') || null;
 
-    let query = '';
+    // If days is provided, use daily table
+    const table = days ? 'ships_daily_totals' : 'ships_totals';
     const params: any[] = [];
 
-    // Base query
+    // Build base query
+    let query = '';
     if (type === 'avg_kd') {
       query = `
-          SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
-          FROM ships_totals
-          WHERE num_entries >= 2
-        `;
+        SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
+        FROM ${table}
+        WHERE num_entries >= 2
+      `;
     } else {
       query = `
-          SELECT gid, recent_name, recent_clan_tag, highest_kills, highest_kd
-          FROM ships_totals
-          WHERE 1=1
-        `;
+        SELECT gid, recent_name, recent_clan_tag, highest_kills, highest_kd
+        FROM ${table}
+        WHERE 1=1
+      `;
+    }
+
+    if (days) {
+      query += ` AND last_entry >= NOW() - INTERVAL ? DAY`;
+      params.push(days);
     }
 
     if (clan) {
@@ -82,26 +96,39 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     query += ` ORDER BY ${type} DESC LIMIT 50`;
 
     // Execute leaderboard query
-    const [rows] = (await connection.execute<RowDataPacket[]>(
-      query,
-      params
-    )) as [LeaderboardRow[], any];
+    const [rows] = (await connection.execute<RowDataPacket[]>(query, params)) as [
+      LeaderboardRow[],
+      any
+    ];
 
-    // Fetch global averages 
-    const [avgRows] = (await connection.execute<RowDataPacket[]>(
-      `SELECT
-          AVG(highest_kills) AS avg_highest_kills,
-          AVG(highest_kd) AS avg_highest_kd,
-          AVG(avg_kd) AS avg_avg_kd
-        FROM ships_totals
-        WHERE num_entries >= 2`
-    )) as [LeaderboardRow[], any];
+    // Global averages
+    let avgQuery = `
+      SELECT
+        AVG(highest_kills) AS avg_highest_kills,
+        AVG(highest_kd) AS avg_highest_kd,
+        AVG(avg_kd) AS avg_avg_kd
+      FROM ${table}
+      WHERE num_entries >= 2
+    `;
+    const avgParams: any[] = [];
+
+    if (days) {
+      avgQuery += ` AND last_entry >= NOW() - INTERVAL ? DAY`;
+      avgParams.push(days);
+    }
+
+    const [avgRows] = (await connection.execute<RowDataPacket[]>(avgQuery, avgParams)) as [
+      LeaderboardRow[],
+      any
+    ];
 
     const averages = avgRows[0];
 
     if (!rows.length) {
       return interaction.editReply(
-        clan ? `❌ No data found for clan **${clan}**.` : '❌ No data found.'
+        clan
+          ? `❌ No data found for clan **${clan}**${days ? ` (last ${days} days)` : ''}.`
+          : `❌ No data found${days ? ` (last ${days} days)` : ''}.`
       );
     }
 
@@ -122,24 +149,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           }
         })();
 
-          const name = r.recent_clan_tag
-            ? `[${r.recent_clan_tag}] ${r.recent_name}`
-            : r.recent_name;
-          description += `${i + idx + 1}. ${name} — ${value}\n`;
-        }
-      );
+        const name = r.recent_clan_tag
+          ? `[${r.recent_clan_tag}] ${r.recent_name}`
+          : r.recent_name;
+        description += `${i + idx + 1}. ${name} — ${value}\n`;
+      });
 
       if (type === 'avg_kd') {
-        description += `\nGlobal avg K/D (≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
+        description += `\nGlobal avg K/D (≥2 games): ${Number(averages.avg_avg_kd).toFixed(2)}`;
       } else if (type === 'highest_kills') {
         description += `\nGlobal avg highest kills: ${Number(averages.avg_highest_kills).toFixed(0)}`;
       } else if (type === 'highest_kd') {
-        description += `\nGlobal avg highest K/D: ${averages.avg_highest_kd.toFixed(2)}`;
+        description += `\nGlobal avg highest K/D: ${Number(averages.avg_highest_kd).toFixed(2)}`;
       }
 
       const embed = new EmbedBuilder()
         .setTitle(
-          `Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}`
+          `Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}${
+            days ? ` — Last ${days} Days` : ''
+          }`
         )
         .setDescription(description)
         .setColor(0x008494)
@@ -150,6 +178,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       pages.push(embed);
     }
 
+    // Pagination controls
     let currentPage = 0;
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()

@@ -11,7 +11,13 @@ export const data = new SlashCommandBuilder()
     .addStringOption((option) => option
     .setName('clan')
     .setDescription('Filter leaderboard by clan tag (optional)')
-    .setRequired(false));
+    .setRequired(false))
+    .addIntegerOption((option) => option
+    .setName('days')
+    .setDescription('Show data from the last N days (optional)')
+    .setRequired(false)
+    .setMinValue(1)
+    .setMaxValue(60));
 const typeNames = {
     highest_kills: 'Highest Kills',
     highest_kd: 'Highest K/D',
@@ -22,22 +28,29 @@ export async function execute(interaction) {
     try {
         const type = interaction.options.getString('type', true);
         const clan = interaction.options.getString('clan')?.trim() || null;
-        let query = '';
+        const days = interaction.options.getInteger('days') || null;
+        // If days is provided, use daily table
+        const table = days ? 'ships_daily_totals' : 'ships_totals';
         const params = [];
-        // Base query
+        // Build base query
+        let query = '';
         if (type === 'avg_kd') {
             query = `
-          SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
-          FROM ships_totals
-          WHERE num_entries >= 2
-        `;
+        SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
+        FROM ${table}
+        WHERE num_entries >= 2
+      `;
         }
         else {
             query = `
-          SELECT gid, recent_name, recent_clan_tag, highest_kills, highest_kd
-          FROM ships_totals
-          WHERE 1=1
-        `;
+        SELECT gid, recent_name, recent_clan_tag, highest_kills, highest_kd
+        FROM ${table}
+        WHERE 1=1
+      `;
+        }
+        if (days) {
+            query += ` AND last_entry >= NOW() - INTERVAL ? DAY`;
+            params.push(days);
         }
         if (clan) {
             query += ` AND recent_clan_tag = ?`;
@@ -46,16 +59,26 @@ export async function execute(interaction) {
         query += ` ORDER BY ${type} DESC LIMIT 50`;
         // Execute leaderboard query
         const [rows] = (await connection.execute(query, params));
-        // Fetch global averages 
-        const [avgRows] = (await connection.execute(`SELECT
-          AVG(highest_kills) AS avg_highest_kills,
-          AVG(highest_kd) AS avg_highest_kd,
-          AVG(avg_kd) AS avg_avg_kd
-        FROM ships_totals
-        WHERE num_entries >= 2`));
+        // Global averages
+        let avgQuery = `
+      SELECT
+        AVG(highest_kills) AS avg_highest_kills,
+        AVG(highest_kd) AS avg_highest_kd,
+        AVG(avg_kd) AS avg_avg_kd
+      FROM ${table}
+      WHERE num_entries >= 2
+    `;
+        const avgParams = [];
+        if (days) {
+            avgQuery += ` AND last_entry >= NOW() - INTERVAL ? DAY`;
+            avgParams.push(days);
+        }
+        const [avgRows] = (await connection.execute(avgQuery, avgParams));
         const averages = avgRows[0];
         if (!rows.length) {
-            return interaction.editReply(clan ? `❌ No data found for clan **${clan}**.` : '❌ No data found.');
+            return interaction.editReply(clan
+                ? `❌ No data found for clan **${clan}**${days ? ` (last ${days} days)` : ''}.`
+                : `❌ No data found${days ? ` (last ${days} days)` : ''}.`);
         }
         const pages = [];
         for (let i = 0; i < rows.length; i += 10) {
@@ -78,16 +101,16 @@ export async function execute(interaction) {
                 description += `${i + idx + 1}. ${name} — ${value}\n`;
             });
             if (type === 'avg_kd') {
-                description += `\nGlobal avg K/D (≥2 games): ${averages.avg_avg_kd.toFixed(2)}`;
+                description += `\nGlobal avg K/D (≥2 games): ${Number(averages.avg_avg_kd).toFixed(2)}`;
             }
             else if (type === 'highest_kills') {
                 description += `\nGlobal avg highest kills: ${Number(averages.avg_highest_kills).toFixed(0)}`;
             }
             else if (type === 'highest_kd') {
-                description += `\nGlobal avg highest K/D: ${averages.avg_highest_kd.toFixed(2)}`;
+                description += `\nGlobal avg highest K/D: ${Number(averages.avg_highest_kd).toFixed(2)}`;
             }
             const embed = new EmbedBuilder()
-                .setTitle(`Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}`)
+                .setTitle(`Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}${days ? ` — Last ${days} Days` : ''}`)
                 .setDescription(description)
                 .setColor(0x008494)
                 .setFooter({
@@ -95,6 +118,7 @@ export async function execute(interaction) {
             });
             pages.push(embed);
         }
+        // Pagination controls
         let currentPage = 0;
         const row = new ActionRowBuilder().addComponents(new ButtonBuilder()
             .setCustomId('prev')
