@@ -149,7 +149,11 @@ import {
                   total_kills = total_kills + VALUES(total_kills),
                   total_deaths = total_deaths + VALUES(total_deaths),
                   num_entries = num_entries + 1,
-                  avg_kd = ((avg_kd * (num_entries - 1)) + VALUES(avg_kd)) / num_entries,
+                  avg_kd = CASE
+                                WHEN (VALUES(total_kills) = 0 AND VALUES(total_deaths) = 0)
+                                THEN avg_kd
+                                ELSE ((avg_kd * (num_entries - 1)) + VALUES(avg_kd)) / num_entries
+                            END,
                   highest_kd = GREATEST(highest_kd, VALUES(highest_kd)),
                   highest_kills = GREATEST(highest_kills, VALUES(highest_kills)),
                   highest_deaths = GREATEST(highest_deaths, VALUES(highest_deaths)),
