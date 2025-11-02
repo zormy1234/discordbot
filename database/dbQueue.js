@@ -22,7 +22,7 @@ export async function enqueueSharedDb(name, fn, maxRetries = 3) {
 // Monitor DB queue size every 5s
 setInterval(() => {
     console.log(`[DB Queue] size: ${mainDbQueue.size}, pending: ${mainDbQueue.pending}`);
-}, 100000);
+}, 1000000);
 function enqueWithRetries(maxRetries, fn, name, dbQueue) {
     return dbQueue.add(async () => {
         let lastError;

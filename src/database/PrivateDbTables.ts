@@ -42,7 +42,56 @@ export async function initDB() {
         avg_rank FLOAT DEFAULT 0,
         PRIMARY KEY (gid, week_start)
     );
-  `);
+
+    CREATE TABLE IF NOT EXISTS ships_history (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,   -- unique row id
+      gid VARCHAR(64) NOT NULL,               -- gid, not unique
+      username VARCHAR(255),                  -- player’s name
+      clan_tag VARCHAR(255),                  -- player’s clan
+      rank INT,                               -- rank in that match
+      kills INT,                              -- kills
+      deaths INT,                             -- deaths
+      created_at TIMESTAMP NOT NULL -- when entry was inserted
+    );
+
+      CREATE TABLE IF NOT EXISTS ships_totals (
+        gid VARCHAR(64) PRIMARY KEY,
+        total_kills INT DEFAULT 0,
+        total_deaths INT DEFAULT 0,
+        avg_kd FLOAT DEFAULT 0,
+        num_entries INT DEFAULT 0,
+        highest_kd FLOAT DEFAULT 0,
+        highest_kd_date TIMESTAMP DEFAULT 0,
+        highest_kd_kills INT DEFAULT 0,
+        highest_kd_deaths INT DEFAULT 0,
+        highest_kills INT DEFAULT 0,
+        highest_kills_date TIMESTAMP DEFAULT 0,
+        highest_kills_deaths INT DEFAULT 0,
+        highest_deaths INT DEFAULT 0,
+        highest_deaths_date TIMESTAMP DEFAULT 0,
+        highest_deaths_kills INT DEFAULT 0,
+        all_names JSON DEFAULT (JSON_ARRAY()),
+        recent_name VARCHAR(255),
+        recent_clan_tag VARCHAR(255),
+        last_entry TIMESTAMP NOT NULL
+    );
+    
+    CREATE TABLE IF NOT EXISTS ships_daily_totals (
+      gid VARCHAR(64) NOT NULL,
+      day DATE NOT NULL,
+      total_kills INT DEFAULT 0,
+      total_deaths INT DEFAULT 0,
+      avg_kd FLOAT DEFAULT 0,
+      num_entries INT DEFAULT 0,
+      highest_kd FLOAT DEFAULT 0,
+      highest_kills INT DEFAULT 0,
+      highest_deaths INT DEFAULT 0,
+      recent_name VARCHAR(255),
+      recent_clan_tag VARCHAR(255),
+      last_entry TIMESTAMP NOT NULL,
+      PRIMARY KEY (gid, day)
+    );
+`);
 }
 
 // Initialize immediately
