@@ -140,25 +140,19 @@ export async function execute(interaction) {
         collector.on('collect', async (btn) => {
             if (!btn.isButton())
                 return;
-            if (btn.user.id !== interaction.user.id) {
-                return btn.reply({
-                    content: 'You cannot control this leaderboard.',
-                    ephemeral: true,
-                });
+            if (btn.customId === 'prev') {
+                currentPage = currentPage === 0 ? pages.length - 1 : currentPage - 1;
             }
-            if (btn.customId === 'prev')
-                currentPage--;
-            if (btn.customId === 'next')
-                currentPage++;
+            if (btn.customId === 'next') {
+                currentPage = currentPage === pages.length - 1 ? 0 : currentPage + 1;
+            }
             const newRow = new ActionRowBuilder().addComponents(new ButtonBuilder()
                 .setCustomId('prev')
                 .setLabel('⬅️ Previous')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(currentPage === 0), new ButtonBuilder()
+                .setStyle(ButtonStyle.Primary), new ButtonBuilder()
                 .setCustomId('next')
                 .setLabel('Next ➡️')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(currentPage === pages.length - 1));
+                .setStyle(ButtonStyle.Primary));
             await btn.update({ embeds: [pages[currentPage]], components: [newRow] });
         });
         collector.on('end', async () => {
@@ -171,7 +165,11 @@ export async function execute(interaction) {
                 .setLabel('Next ➡️')
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(true));
-            await interaction.editReply({ components: [disabledRow] });
+            // Reset to first page
+            await interaction.editReply({
+                embeds: [pages[0]],
+                components: [disabledRow],
+            });
         });
     }
     catch (err) {

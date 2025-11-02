@@ -205,27 +205,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     collector.on('collect', async (btn) => {
       if (!btn.isButton()) return;
-      if (btn.user.id !== interaction.user.id) {
-        return btn.reply({
-          content: 'You cannot control this leaderboard.',
-          ephemeral: true,
-        });
+      if (btn.customId === 'prev') {
+        currentPage = currentPage === 0 ? pages.length - 1 : currentPage - 1;
       }
-
-      if (btn.customId === 'prev') currentPage--;
-      if (btn.customId === 'next') currentPage++;
-
+      if (btn.customId === 'next') {
+        currentPage = currentPage === pages.length - 1 ? 0 : currentPage + 1;
+      }
+      
       const newRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId('prev')
           .setLabel('⬅️ Previous')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(currentPage === 0),
+          .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId('next')
           .setLabel('Next ➡️')
           .setStyle(ButtonStyle.Primary)
-          .setDisabled(currentPage === pages.length - 1)
       );
 
       await btn.update({ embeds: [pages[currentPage]], components: [newRow] });
@@ -244,7 +239,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           .setStyle(ButtonStyle.Primary)
           .setDisabled(true)
       );
-      await interaction.editReply({ components: [disabledRow] });
+    
+      // Reset to first page
+      await interaction.editReply({
+        embeds: [pages[0]],
+        components: [disabledRow],
+      });
     });
   } catch (err) {
     console.error('Leaderboard command error:', err);
