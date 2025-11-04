@@ -13,8 +13,8 @@ export async function execute(interaction) {
     await interaction.deferReply();
     const name = interaction.options.getString('name', true);
     const clan = interaction.options.getString('clan') ?? null;
-    if (name.length <= 2) {
-        return interaction.editReply('❌ Please enter a name longer than 2 characters.');
+    if (name.length < 2) {
+        return interaction.editReply('❌ Please enter a name longer than 1 character.');
     }
     const PAGE_SIZE = 5;
     const MAX_PAGES = 5;
@@ -38,7 +38,7 @@ export async function execute(interaction) {
     async function buildContent(page) {
         const results = await fetchPage(page);
         if (results.length === 0) {
-            return `❌ No results found for **${name}**${clan ? ` in clan ${clan}` : ''}.`;
+            return `❌ No tanks3d player found for **${name}**${clan ? ` in clan ${clan}` : ''}.`;
         }
         const lines = results.map(r => {
             const scoreStr = r.total_score.toLocaleString();
