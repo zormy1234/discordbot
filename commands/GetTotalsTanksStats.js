@@ -12,7 +12,7 @@ export const data = new SlashCommandBuilder()
     .setDescription('Optional clan tag to filter by')
     .setRequired(false));
 export async function execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     const name = interaction.options.getString('name', true);
     const clan = interaction.options.getString('clan') ?? null;
     if (name.length < 2) {

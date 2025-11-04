@@ -26,7 +26,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply();
 
   const name = interaction.options.getString('name', true);
   const clan = interaction.options.getString('clan') ?? null;
