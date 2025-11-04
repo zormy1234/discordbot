@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, ComponentType, } from 'discord.js';
 import connection from '../database/connect.js';
 export const data = new SlashCommandBuilder()
-    .setName('ships_highest_stats')
+    .setName('ships_pvp_stats')
     .setDescription('Find a Ships3D player and view their highest/average stats for team flags pvp')
     .addStringOption((option) => option
     .setName('name')
@@ -88,29 +88,29 @@ export async function execute(interaction) {
                 .setTitle(`🚢 Ships3D Stats for ${stats.recent_clan_tag || ''} ${stats.recent_name || 'Unknown'} (${gid})`)
                 .setColor(0x0099ff)
                 .addFields({
-                name: '⚔️ Highest Kills',
-                value: `${stats.highest_kills?.toLocaleString?.() || 'N/A'} on ${stats.highest_kills_date
+                name: 'Highest Kills',
+                value: `${stats.highest_kills?.toLocaleString?.() || 'N/A'} kills on ${stats.highest_kills_date
                     ? new Date(stats.highest_kills_date).toLocaleDateString()
                     : 'Unknown'}`,
                 inline: false,
             }, {
-                name: '📈 Highest K/D',
+                name: 'Highest K/D',
                 value: `${stats.highest_kd?.toFixed?.(2) || 'N/A'} on ${stats.highest_kd_date
                     ? new Date(stats.highest_kd_date).toLocaleDateString()
                     : 'Unknown'}`,
                 inline: false,
             }, {
-                name: '⚔️ Kills / Deaths (Highest K/D Match)',
+                name: 'Kills / Deaths (Highest K/D Match)',
                 value: `${stats.highest_kd_kills ?? 'N/A'} / ${stats.highest_kd_deaths ?? 'N/A'}`,
                 inline: false,
             }, {
-                name: '📊 Average K/D',
+                name: 'Average K/D',
                 value: stats.avg_kd ? stats.avg_kd.toFixed(2) : 'N/A',
                 inline: false,
             })
                 .setTimestamp();
             await selectInteraction.update({
-                content: `📜 Showing stats for GID \`${gid}\`:`,
+                content: `Stats for GID \`${gid}\`:`,
                 embeds: [embed],
                 components: [],
             });
