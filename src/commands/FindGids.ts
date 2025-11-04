@@ -9,7 +9,7 @@ import {
   import connection from '../database/connect.js';
   
   export const data = new SlashCommandBuilder()
-    .setName('find_player')
+    .setName('find_tanks_player')
     .setDescription('Find players by name (and optional clan tag)')
     .addStringOption(option =>
       option.setName('name')
