@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, ComponentType, } from 'discord.js';
 import connection from '../database/connect.js';
 export const data = new SlashCommandBuilder()
-    .setName('tanks_lookup')
+    .setName('tanks_highest_stats')
     .setDescription('Find a Tanks3D player and view their highest stats')
     .addStringOption(option => option
     .setName('name')
