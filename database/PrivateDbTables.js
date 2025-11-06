@@ -90,6 +90,41 @@ export async function initDB() {
       last_entry TIMESTAMP NOT NULL,
       PRIMARY KEY (gid, day)
     );
+
+    CREATE TABLE IF NOT EXISTS bounties (
+      id INT AUTO_INCREMENT PRIMARY KEY, 
+      guild_id VARCHAR(32) NOT NULL,
+      target_gid VARCHAR(32) NULL,
+      target_name VARCHAR(100) NOT NULL,
+      placed_by_discord_id VARCHAR(32) NOT NULL,
+      reward INT NOT NULL,
+      status ENUM('active', 'completed', 'cancelled') DEFAULT 'active',
+      completed_by_discord_id VARCHAR(32) NULL,
+      completed_by_name VARCHAR(64) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME NULL,
+      reason VARCHAR(255) DEFAULT 'No reason given'
+    );
+
+    CREATE TABLE IF NOT EXISTS gold_balances (
+      guild_id VARCHAR(32) NOT NULL,
+      user_id VARCHAR(32) NOT NULL,
+      gold INT DEFAULT 0,
+      PRIMARY KEY (guild_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS bounty_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      bounty_id INT NOT NULL,
+      action VARCHAR(50),
+      actor_discord_id BIGINT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS bounty_config (
+      guild_id VARCHAR(32) PRIMARY KEY,
+      bounty_role_id VARCHAR(32) NOT NULL
+    );
 `);
 }
 // Initialize immediately
