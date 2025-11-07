@@ -10,8 +10,8 @@ function calculateBountyGold(player, avgKills) {
     if (!player)
         return Math.floor(Math.random() * (1000 - 100 + 1)) + 100; // Unknown player
     const ratio = player.total_kills / avgKills;
-    if (ratio >= 100)
-        return 10000;
+    if (ratio >= 150)
+        return 5000;
     if (ratio >= 10)
         return 1000;
     return Math.floor(Math.random() * (1000 - 100 + 1)) + 100;
