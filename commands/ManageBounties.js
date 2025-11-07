@@ -1,6 +1,6 @@
 // commands/bounty.js
 import { SlashCommandBuilder } from 'discord.js';
-import { completeBounty, createBounty, listOpenBounties, } from '../utils/BountyLogic.js';
+import { cancelBounty, completeBounty, createBounty, listOpenBounties, } from '../utils/BountyLogic.js';
 import connection from '../database/connect.js';
 export const data = new SlashCommandBuilder()
     .setName('bounty')
@@ -28,17 +28,13 @@ export const data = new SlashCommandBuilder()
     .addStringOption((opt) => opt
     .setName('bounty_id')
     .setDescription('The bounty ID to complete')))
-    //   .addSubcommand((sub) =>
-    //     sub
-    //       .setName('cancel')
-    //       .setDescription('Cancel a bounty')
-    //       .addStringOption((opt) =>
-    //         opt
-    //           .setName('bounty_id')
-    //           .setDescription('The bounty ID to cancel')
-    //           .setRequired(true)
-    //       )
-    //   )
+    .addSubcommand((sub) => sub
+    .setName('cancel')
+    .setDescription('Cancel a bounty')
+    .addNumberOption((opt) => opt
+    .setName('bounty_id')
+    .setDescription('The bounty ID to cancel')
+    .setRequired(true)))
     .addSubcommand((sub) => sub.setName('list').setDescription('List all active bounties'));
 //   .addSubcommand((sub) =>
 //     sub.setName('leaderboard').setDescription('Show the gold leaderboard')
@@ -60,10 +56,10 @@ export async function execute(interaction) {
         case 'complete': {
             return completeBounty(interaction);
         }
-        // case 'cancel': {
-        //   const bountyId = interaction.options.getString('bounty_id', true);
-        //   return cancelBounty(interaction, bountyId);
-        // }
+        case 'cancel': {
+            const bountyId = interaction.options.getNumber('bounty_id', true);
+            return cancelBounty(interaction, bountyId);
+        }
         case 'list':
             return listOpenBounties(interaction);
         // case 'leaderboard':

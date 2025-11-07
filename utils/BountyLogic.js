@@ -1,5 +1,5 @@
 import connection from '../database/connect.js';
-import { EmbedBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, } from 'discord.js';
+import { EmbedBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, } from 'discord.js';
 /* -------------------------------------------------------------------------- */
 /*                               CORE FUNCTIONS                               */
 /* -------------------------------------------------------------------------- */
@@ -31,7 +31,7 @@ export async function findPlayerByName(name) {
 }
 /**
  * Creates a bounty
-*/
+ */
 export async function createBounty(interaction) {
     const lowestBounty = Math.floor(Math.random() * (1000 - 100 + 1)) + 100;
     await interaction.deferReply({ ephemeral: true });
@@ -206,8 +206,9 @@ export async function listOpenBounties(interaction) {
     const reply = await interaction.editReply({
         embeds: [buildEmbed(page)],
         components: pages.length > 1 ? [makeRow(page)] : [],
-        allowedMentions: { users: Array.from(new Set(pages.flatMap(page => page.map(b => b.placed_by_discord_id))))
-        }
+        allowedMentions: {
+            users: Array.from(new Set(pages.flatMap((page) => page.map((b) => b.placed_by_discord_id)))),
+        },
     });
     if (pages.length === 1)
         return;
@@ -372,13 +373,53 @@ export async function completeBounty(interaction) {
 /**
  * Cancels a bounty
  */
-export async function cancelBounty(guildId, bountyId) {
+export async function cancelBounty(interaction, bountyId) {
+    await interaction.deferReply({ ephemeral: true });
+    const guildId = interaction.guildId;
+    const userId = interaction.user.id;
+    // ✅ Fetch bounty
+    const [rows] = await connection.execute(`
+      SELECT placed_by_discord_id, status
+      FROM bounties
+      WHERE guild_id = ? AND id = ?
+      `, [guildId, bountyId]);
+    const bounty = rows[0];
+    if (!bounty) {
+        return interaction.editReply({
+            content: `❌ No bounty found with ID **${bountyId}**.`,
+        });
+    }
+    // ✅ Check admin privileges
+    const member = await interaction.guild?.members.fetch(userId);
+    const isAdmin = member?.permissions.has(PermissionFlagsBits.Administrator);
+    // ✅ Validate ownership or admin permission
+    if (bounty.placed_by_discord_id !== userId && !isAdmin) {
+        return interaction.editReply({
+            content: `🚫 You can only cancel bounties that **you created** unless you're an **administrator**.`,
+        });
+    }
+    if (bounty.status !== 'active') {
+        return interaction.editReply({
+            content: `⚠️ This bounty is already **${bounty.status}** and cannot be cancelled.`,
+        });
+    }
+    // ✅ Cancel bounty
     const [result] = await connection.execute(`
-    UPDATE bounties 
-    SET status = 'cancelled' 
-    WHERE guild_id = ? AND id = ? AND status = 'active'
-    `, [guildId, bountyId]);
-    return result.affectedRows > 0;
+      UPDATE bounties 
+      SET status = 'cancelled' 
+      WHERE guild_id = ? AND id = ? AND status = 'active'
+      `, [guildId, bountyId]);
+    if (result.affectedRows === 0) {
+        return interaction.editReply({
+            content: `❌ No active bounty found with ID **${bountyId}**.`,
+        });
+    }
+    // ✅ Log cancellation
+    await connection.execute(`INSERT INTO bounty_log (bounty_id, action, actor_discord_id)
+       VALUES (?, 'cancelled', ?)`, [bountyId, userId]);
+    return interaction.editReply({
+        content: `🗑️ Bounty **#${bountyId}** has been successfully cancelled.`,
+    });
 }
 /**
  * Get leaderboard of gold

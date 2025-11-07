@@ -52,17 +52,17 @@ export const data = new SlashCommandBuilder()
           .setDescription('The bounty ID to complete')
       )
   )
-//   .addSubcommand((sub) =>
-//     sub
-//       .setName('cancel')
-//       .setDescription('Cancel a bounty')
-//       .addStringOption((opt) =>
-//         opt
-//           .setName('bounty_id')
-//           .setDescription('The bounty ID to cancel')
-//           .setRequired(true)
-//       )
-//   )
+  .addSubcommand((sub) =>
+    sub
+      .setName('cancel')
+      .setDescription('Cancel a bounty')
+      .addNumberOption((opt) =>
+        opt
+          .setName('bounty_id')
+          .setDescription('The bounty ID to cancel')
+          .setRequired(true)
+      )
+  )
   .addSubcommand((sub) =>
     sub.setName('list').setDescription('List all active bounties')
   );
@@ -90,10 +90,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return completeBounty(interaction);
     }
 
-    // case 'cancel': {
-    //   const bountyId = interaction.options.getString('bounty_id', true);
-    //   return cancelBounty(interaction, bountyId);
-    // }
+    case 'cancel': {
+      const bountyId = interaction.options.getNumber('bounty_id', true);
+      return cancelBounty(interaction, bountyId);
+    }
 
     case 'list':
       return listOpenBounties(interaction);

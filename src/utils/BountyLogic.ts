@@ -14,6 +14,7 @@ import {
   CacheType,
   ButtonBuilder,
   ButtonStyle,
+  PermissionFlagsBits,
 } from 'discord.js';
 
 interface Bounty extends RowDataPacket {
@@ -75,9 +76,9 @@ export async function findPlayerByName(name: string): Promise<Player[]> {
 
 /**
  * Creates a bounty
-*/
+ */
 export async function createBounty(interaction: ChatInputCommandInteraction) {
- const lowestBounty = Math.floor(Math.random() * (1000 - 100 + 1)) + 100;
+  const lowestBounty = Math.floor(Math.random() * (1000 - 100 + 1)) + 100;
   await interaction.deferReply({ ephemeral: true });
   const guildId = interaction.guildId!;
   if (!guildId)
@@ -119,11 +120,10 @@ export async function createBounty(interaction: ChatInputCommandInteraction) {
   );
   const total = countRows[0].total as number;
 
-
   if (total >= 10) {
     return interaction.editReply({
-        content: `🚫 You already have the maximum number of allowed open bounties (${total}).`,
-      });
+      content: `🚫 You already have the maximum number of allowed open bounties (${total}).`,
+    });
   }
 
   const search = interaction.options.getString('player', true);
@@ -265,7 +265,7 @@ async function createBountyRecord(
   reward: number,
   reason: string
 ) {
-    const [result] = await connection.execute<ResultSetHeader>(
+  const [result] = await connection.execute<ResultSetHeader>(
     `INSERT INTO bounties (guild_id, target_gid, target_name, placed_by_discord_id, reward, reason)
            VALUES (?, ?, ?, ?, ?, ?)`,
     [interaction.guildId, gid, name, interaction.user.id, reward, reason]
@@ -326,7 +326,7 @@ export async function listOpenBounties(
       .setDescription(`Page ${index + 1}/${pages.length}`)
       .setTimestamp();
 
-      for (const b of pageRows) {
+    for (const b of pageRows) {
       embed.addFields({
         name: `#${b.id} — ${b.target_name}`,
         value:
@@ -359,9 +359,13 @@ export async function listOpenBounties(
   const reply = await interaction.editReply({
     embeds: [buildEmbed(page)],
     components: pages.length > 1 ? [makeRow(page)] : [],
-    allowedMentions: { users: Array.from(
-        new Set(pages.flatMap(page => page.map(b => b.placed_by_discord_id))))
-    }
+    allowedMentions: {
+      users: Array.from(
+        new Set(
+          pages.flatMap((page) => page.map((b) => b.placed_by_discord_id))
+        )
+      ),
+    },
   });
 
   if (pages.length === 1) return;
@@ -592,18 +596,74 @@ export async function completeBounty(interaction: ChatInputCommandInteraction) {
  * Cancels a bounty
  */
 export async function cancelBounty(
-  guildId: string,
+  interaction: ChatInputCommandInteraction,
   bountyId: number
-): Promise<boolean> {
-  const [result] = await connection.execute<ResultSetHeader>(
+) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const guildId = interaction.guildId!;
+  const userId = interaction.user.id;
+
+  // ✅ Fetch bounty
+  const [rows] = await connection.execute<RowDataPacket[]>(
     `
-    UPDATE bounties 
-    SET status = 'cancelled' 
-    WHERE guild_id = ? AND id = ? AND status = 'active'
-    `,
+      SELECT placed_by_discord_id, status
+      FROM bounties
+      WHERE guild_id = ? AND id = ?
+      `,
     [guildId, bountyId]
   );
-  return result.affectedRows > 0;
+
+  const bounty = rows[0];
+  if (!bounty) {
+    return interaction.editReply({
+      content: `❌ No bounty found with ID **${bountyId}**.`,
+    });
+  }
+
+  // ✅ Check admin privileges
+  const member = await interaction.guild?.members.fetch(userId);
+  const isAdmin = member?.permissions.has(PermissionFlagsBits.Administrator);
+
+  // ✅ Validate ownership or admin permission
+  if (bounty.placed_by_discord_id !== userId && !isAdmin) {
+    return interaction.editReply({
+      content: `🚫 You can only cancel bounties that **you created** unless you're an **administrator**.`,
+    });
+  }
+
+  if (bounty.status !== 'active') {
+    return interaction.editReply({
+      content: `⚠️ This bounty is already **${bounty.status}** and cannot be cancelled.`,
+    });
+  }
+
+  // ✅ Cancel bounty
+  const [result] = await connection.execute<ResultSetHeader>(
+    `
+      UPDATE bounties 
+      SET status = 'cancelled' 
+      WHERE guild_id = ? AND id = ? AND status = 'active'
+      `,
+    [guildId, bountyId]
+  );
+
+  if (result.affectedRows === 0) {
+    return interaction.editReply({
+      content: `❌ No active bounty found with ID **${bountyId}**.`,
+    });
+  }
+
+  // ✅ Log cancellation
+  await connection.execute(
+    `INSERT INTO bounty_log (bounty_id, action, actor_discord_id)
+       VALUES (?, 'cancelled', ?)`,
+    [bountyId, userId]
+  );
+
+  return interaction.editReply({
+    content: `🗑️ Bounty **#${bountyId}** has been successfully cancelled.`,
+  });
 }
 
 /**
@@ -757,14 +817,13 @@ export async function showUserBounties(
 }
 
 async function logBountyAction(
-    bountyId: number,
-    action: string,
-    actorDiscordId: string
-  ) {
-    await connection.execute(
-      `INSERT INTO bounty_log (bounty_id, action, actor_discord_id)
+  bountyId: number,
+  action: string,
+  actorDiscordId: string
+) {
+  await connection.execute(
+    `INSERT INTO bounty_log (bounty_id, action, actor_discord_id)
          VALUES (?, ?, ?)`,
-      [bountyId, action, actorDiscordId]
-    );
-  }
-  
+    [bountyId, action, actorDiscordId]
+  );
+}
