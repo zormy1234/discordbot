@@ -14,7 +14,8 @@ export const data = new SlashCommandBuilder()
     .addStringOption((opt) => opt
     .setName('reason')
     .setDescription('Reason for placing the bounty')
-    .setMaxLength(200)))
+    .setMaxLength(200)
+    .setRequired(true)))
     .addSubcommand((sub) => sub
     .setName('complete')
     .setDescription('Mark a bounty as complete')

@@ -30,6 +30,7 @@ export const data = new SlashCommandBuilder()
           .setName('reason')
           .setDescription('Reason for placing the bounty')
           .setMaxLength(200)
+          .setRequired(true)
       )
   )
   .addSubcommand((sub) =>
