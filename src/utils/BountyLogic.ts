@@ -811,7 +811,7 @@ async function giveUserGold(
 export async function showLeaderboard(
   interaction: ChatInputCommandInteraction
 ) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({});
 
   const guildId = interaction.guildId!;
   const leaderboard = await getGoldLeaderboard(guildId);

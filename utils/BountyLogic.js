@@ -494,7 +494,7 @@ async function giveUserGold(discordId, amount, guildId) {
  * Builds an embed leaderboard for the guild
  */
 export async function showLeaderboard(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({});
     const guildId = interaction.guildId;
     const leaderboard = await getGoldLeaderboard(guildId);
     const perPage = 10;
