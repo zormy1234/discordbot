@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/zormy1234/discordbot#readme",
   "dependencies": {
+    "chartjs-node-canvas": "^5.0.0",
     "dayjs": "^1.11.19",
     "discord.js": "^14.22.1",
     "dotenv": "^17.2.2",
