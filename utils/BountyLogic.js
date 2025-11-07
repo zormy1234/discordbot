@@ -8,13 +8,13 @@ import { EmbedBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, Componen
  */
 function calculateBountyGold(player, avgKills) {
     if (!player)
-        return Math.floor(Math.random() * (1000 - 100 + 1)) + 100; // Unknown player
+        return Math.floor(Math.random() * 501) + 1000; // Unknown player
     const ratio = player.total_kills / avgKills;
     if (ratio >= 150)
-        return 5000;
+        return 3000;
     if (ratio >= 10)
-        return 1000;
-    return Math.floor(Math.random() * (1000 - 100 + 1)) + 100;
+        return 2000;
+    return Math.floor(Math.random() * (2000 - 1000 + 1)) + 1000;
 }
 /**
  * Finds a player in ships_totals by name
@@ -33,7 +33,7 @@ export async function findPlayerByName(name) {
  * Creates a bounty
  */
 export async function createBounty(interaction) {
-    const lowestBounty = Math.floor(Math.random() * (1000 - 100 + 1)) + 100;
+    const lowestBounty = Math.floor(Math.random() * 501) + 1000;
     await interaction.deferReply({ ephemeral: true });
     const guildId = interaction.guildId;
     if (!guildId)
