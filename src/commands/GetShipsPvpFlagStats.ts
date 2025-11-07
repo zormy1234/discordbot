@@ -96,6 +96,7 @@ import {
         const [statsRows] = await connection.execute<RowDataPacket[]>(
           `
           SELECT 
+              total_kills,  
               highest_kills,
               highest_kills_date,
               highest_kills_deaths,
@@ -158,6 +159,11 @@ import {
             {
               name: 'Average K/D',
               value: stats.avg_kd ? stats.avg_kd.toFixed(2) : 'N/A',
+              inline: false,
+            },
+            {
+              name: 'Total Kills',
+              value: (stats.total_kills ?? 0).toLocaleString(),
               inline: false,
             }
           )

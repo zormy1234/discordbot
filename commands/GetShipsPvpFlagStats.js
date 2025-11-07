@@ -63,6 +63,7 @@ export async function execute(interaction) {
             // Step 4: Fetch player’s Ships3D stats
             const [statsRows] = await connection.execute(`
           SELECT 
+              total_kills,  
               highest_kills,
               highest_kills_date,
               highest_kills_deaths,
@@ -106,6 +107,10 @@ export async function execute(interaction) {
             }, {
                 name: 'Average K/D',
                 value: stats.avg_kd ? stats.avg_kd.toFixed(2) : 'N/A',
+                inline: false,
+            }, {
+                name: 'Total Kills',
+                value: (stats.total_kills ?? 0).toLocaleString(),
                 inline: false,
             })
                 .setTimestamp();
