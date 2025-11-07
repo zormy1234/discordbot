@@ -57,6 +57,8 @@ export async function createBounty(interaction) {
             content: `🚫 You must have the <@&${config.bounty_role_id}> role to create bounties.`,
         });
     }
+    const imageAttachment = interaction.options.getAttachment('image');
+    const imageUrl = imageAttachment?.url || undefined;
     const [countRows] = await connection.execute(`SELECT COUNT(*) AS total
        FROM bounties
        WHERE placed_by_discord_id = ? AND guild_id = ? AND status = 'active'`, [interaction.user.id, guildId]);
@@ -75,12 +77,12 @@ export async function createBounty(interaction) {
        ORDER BY total_kills DESC
        LIMIT 5`, [`%${search}%`]));
     if (!rows.length) {
-        await createBountyRecord(interaction, null, search, lowestBounty, reason);
+        await createBountyRecord(interaction, null, search, lowestBounty, reason, imageUrl);
         // ✅ Edit ephemeral reply
         await interaction.editReply({
             content: `🪙 Created a ${lowestBounty} gold bounty for **${search}** (unknown player).`,
         });
-        await sendBountyCreatedMessage(interaction, search, lowestBounty, reason);
+        await sendBountyCreatedMessage(interaction, search, lowestBounty, reason, imageUrl);
         return;
     }
     // If multiple players, show selection menu (ephemeral)
@@ -115,21 +117,21 @@ export async function createBounty(interaction) {
         let reward = lowestBounty;
         let targetName = search;
         if (selected === 'custom_name') {
-            await createBountyRecord(interaction, null, search, reward, reason);
+            await createBountyRecord(interaction, null, search, reward, reason, imageUrl);
         }
         else if (player) {
             const [avgRow] = (await connection.execute(`SELECT AVG(total_kills) AS avg_kills FROM ships_totals`));
             const avgKills = avgRow[0]?.avg_kills || 1;
             targetName = player.recent_name;
             reward = calculateBountyGold(player, avgKills);
-            await createBountyRecord(interaction, player.gid, targetName, reward, reason);
+            await createBountyRecord(interaction, player.gid, targetName, reward, reason, imageUrl);
         }
         // ✅ Update ephemeral confirmation
         await interaction.editReply({
             content: `🪙 Bounty created for **${targetName}** worth **${reward} gold**.`,
             components: [],
         });
-        await sendBountyCreatedMessage(interaction, targetName, reward, reason);
+        await sendBountyCreatedMessage(interaction, targetName, reward, reason, imageUrl);
         collector.stop();
     });
     collector?.on('end', async () => {
@@ -139,7 +141,7 @@ export async function createBounty(interaction) {
         catch { }
     });
 }
-async function sendBountyCreatedMessage(interaction, targetName, reward, reason) {
+async function sendBountyCreatedMessage(interaction, targetName, reward, reason, imageUrl) {
     const channel = interaction.channel;
     if (!channel)
         return;
@@ -147,22 +149,31 @@ async function sendBountyCreatedMessage(interaction, targetName, reward, reason)
         .setTitle('🪙 New Bounty Created!')
         .addFields({ name: 'Target', value: targetName, inline: true }, { name: 'Reward', value: `${reward} gold`, inline: true }, { name: 'Reason', value: reason, inline: false }, { name: 'Placed by', value: `<@${interaction.user.id}>`, inline: false })
         .setTimestamp();
+    if (imageUrl)
+        embed.setThumbnail(imageUrl);
     await channel.send({ embeds: [embed] });
 }
-async function createBountyRecord(interaction, gid, name, reward, reason) {
-    const [result] = await connection.execute(`INSERT INTO bounties (guild_id, target_gid, target_name, placed_by_discord_id, reward, reason)
-           VALUES (?, ?, ?, ?, ?, ?)`, [interaction.guildId, gid, name, interaction.user.id, reward, reason]);
+async function createBountyRecord(interaction, gid, name, reward, reason, imageUrl) {
+    const [result] = await connection.execute(`INSERT INTO bounties (guild_id, target_gid, target_name, placed_by_discord_id, reward, reason, image_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+        interaction.guildId,
+        gid,
+        name,
+        interaction.user.id,
+        reward,
+        reason,
+        imageUrl || null,
+    ]);
     const bountyId = result.insertId;
-    // ✅ Log creation
     await logBountyAction(bountyId, 'created', interaction.user.id);
 }
 export async function listOpenBounties(interaction) {
     const guildId = interaction.guildId;
     await interaction.deferReply();
-    const [rows] = await connection.execute(`SELECT id, target_name, reward, placed_by_discord_id, created_at, reason
-           FROM bounties
-           WHERE guild_id = ? AND status = 'active'
-           ORDER BY created_at DESC`, [guildId]);
+    const [rows] = await connection.execute(`SELECT id, target_name, reward, placed_by_discord_id, created_at, reason, image_url
+       FROM bounties
+       WHERE guild_id = ? AND status = 'active'
+       ORDER BY created_at DESC`, [guildId]);
     if (!rows.length) {
         return interaction.editReply({
             content: '📭 There are currently **no active bounties** in this server.',
@@ -174,23 +185,28 @@ export async function listOpenBounties(interaction) {
         pages.push(rows.slice(i, i + pageSize));
     }
     let page = 0;
-    const buildEmbed = (index) => {
+    const buildEmbeds = (index) => {
         const pageRows = pages[index];
-        const embed = new EmbedBuilder()
+        // Page header embed
+        const headerEmbed = new EmbedBuilder()
             .setTitle('🎯 Active Bounties')
             .setDescription(`Page ${index + 1}/${pages.length}`)
             .setTimestamp();
+        const embeds = [headerEmbed];
+        // Each bounty gets its own small embed
         for (const b of pageRows) {
-            embed.addFields({
-                name: `#${b.id} — ${b.target_name}`,
-                value: `💰 **${b.reward} gold**\n` +
-                    `Placed by: <@${b.placed_by_discord_id}>\n` +
-                    `<t:${Math.floor(new Date(b.created_at).getTime() / 1000)}:R>\n` +
-                    `${b.reason} \n \n`,
-                inline: false,
-            });
+            const e = new EmbedBuilder()
+                .setTitle(`#${b.id} — ${b.target_name}`)
+                .setDescription(`💰 **${b.reward} gold**\n` +
+                `Placed by: <@${b.placed_by_discord_id}>\n` +
+                `<t:${Math.floor(new Date(b.created_at).getTime() / 1000)}:R>\n` +
+                `${b.reason}`)
+                .setTimestamp();
+            if (b.image_url)
+                e.setThumbnail(b.image_url);
+            embeds.push(e);
         }
-        return embed;
+        return embeds;
     };
     const makeRow = (index) => {
         return new ActionRowBuilder().addComponents(new ButtonBuilder()
@@ -204,7 +220,7 @@ export async function listOpenBounties(interaction) {
             .setDisabled(index === pages.length - 1));
     };
     const reply = await interaction.editReply({
-        embeds: [buildEmbed(page)],
+        embeds: buildEmbeds(page),
         components: pages.length > 1 ? [makeRow(page)] : [],
         allowedMentions: {
             users: Array.from(new Set(pages.flatMap((page) => page.map((b) => b.placed_by_discord_id)))),
@@ -227,7 +243,7 @@ export async function listOpenBounties(interaction) {
         else if (i.customId === 'bounty_next' && page < pages.length - 1)
             page++;
         await i.update({
-            embeds: [buildEmbed(page)],
+            embeds: buildEmbeds(page),
             components: [makeRow(page)],
         });
     });
@@ -528,7 +544,10 @@ export async function showLeaderboard(interaction) {
     });
     collector.on('collect', async (i) => {
         if (i.user.id !== interaction.user.id) {
-            await i.reply({ content: "You can't control this leaderboard.", ephemeral: true });
+            await i.reply({
+                content: "You can't control this leaderboard.",
+                ephemeral: true,
+            });
             return;
         }
         switch (i.customId) {

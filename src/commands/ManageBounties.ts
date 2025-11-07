@@ -32,6 +32,11 @@ export const data = new SlashCommandBuilder()
           .setMaxLength(200)
           .setRequired(true)
       )
+      .addAttachmentOption(opt =>
+        opt
+          .setName('image')
+          .setDescription('Optional image for this bounty (e.g. screenshot or avatar)')
+      )
   )
   .addSubcommand((sub) =>
     sub

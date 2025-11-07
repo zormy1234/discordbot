@@ -15,7 +15,10 @@ export const data = new SlashCommandBuilder()
     .setName('reason')
     .setDescription('Reason for placing the bounty')
     .setMaxLength(200)
-    .setRequired(true)))
+    .setRequired(true))
+    .addAttachmentOption(opt => opt
+    .setName('image')
+    .setDescription('Optional image for this bounty (e.g. screenshot or avatar)')))
     .addSubcommand((sub) => sub
     .setName('complete')
     .setDescription('Mark a bounty as complete')
