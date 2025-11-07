@@ -50,11 +50,11 @@ interface GoldBalance extends RowDataPacket {
  * Calculates bounty reward based on player's stats
  */
 function calculateBountyGold(player: Player | null, avgKills: number): number {
-  if (!player) return Math.floor(Math.random() * 501) + 1000; // Unknown player
+  if (!player) return Math.floor(Math.random() * (1500 - 1000 + 1)) + 1000; //1000-1500
   const ratio = player.total_kills / avgKills;
-  if (ratio >= 150) return 3000;
-  if (ratio >= 10) return 2000;
-  return Math.floor(Math.random() * (2000 - 1000 + 1)) + 1000;
+  if (ratio >= 150) return Math.floor(Math.random() * (3000 - 2500 + 1)) + 2500; // 2500-3000
+  if (ratio >= 10) return Math.floor(Math.random() * (2500 - 2000 + 1)) + 2000; // 2000-2500
+  return Math.floor(Math.random() * (2000 - 1500 + 1)) + 1500; // 1500-2000
 }
 
 /**
