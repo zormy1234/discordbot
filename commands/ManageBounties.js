@@ -1,7 +1,6 @@
 // commands/bounty.js
 import { SlashCommandBuilder } from 'discord.js';
-import { cancelBounty, completeBounty, createBounty, listOpenBounties, } from '../utils/BountyLogic.js';
-import connection from '../database/connect.js';
+import { cancelBounty, completeBounty, createBounty, listOpenBounties, showLeaderboard, showCompletedUserBounties, } from '../utils/BountyLogic.js';
 export const data = new SlashCommandBuilder()
     .setName('bounty')
     .setDescription('Manage player bounties')
@@ -25,9 +24,7 @@ export const data = new SlashCommandBuilder()
     .addStringOption((opt) => opt
     .setName('non_discord_winner')
     .setDescription('Use this field if the winner is not in discord'))
-    .addStringOption((opt) => opt
-    .setName('bounty_id')
-    .setDescription('The bounty ID to complete')))
+    .addStringOption((opt) => opt.setName('bounty_id').setDescription('The bounty ID to complete')))
     .addSubcommand((sub) => sub
     .setName('cancel')
     .setDescription('Cancel a bounty')
@@ -35,50 +32,40 @@ export const data = new SlashCommandBuilder()
     .setName('bounty_id')
     .setDescription('The bounty ID to cancel')
     .setRequired(true)))
-    .addSubcommand((sub) => sub.setName('list').setDescription('List all active bounties'));
-//   .addSubcommand((sub) =>
-//     sub.setName('leaderboard').setDescription('Show the gold leaderboard')
-//   )
-//   .addSubcommand((sub) =>
-//     sub
-//       .setName('user')
-//       .setDescription('Show all bounties completed by a user')
-//       .addUserOption((opt) =>
-//         opt.setName('user').setDescription('User to check').setRequired(true)
-//       )
-//   );
+    .addSubcommand((sub) => sub.setName('list').setDescription('List all active bounties'))
+    .addSubcommand((sub) => sub.setName('leaderboard').setDescription('Show the gold leaderboard'))
+    .addSubcommand((sub) => sub
+    .setName('mytrophies')
+    .setDescription('Show all bounties completed by a user'));
 export async function execute(interaction) {
     const sub = interaction.options.getSubcommand();
-    switch (sub) {
-        case 'create': {
-            return createBounty(interaction);
+    try {
+        switch (sub) {
+            case 'create': {
+                return createBounty(interaction);
+            }
+            case 'complete': {
+                return completeBounty(interaction);
+            }
+            case 'cancel': {
+                const bountyId = interaction.options.getNumber('bounty_id', true);
+                return cancelBounty(interaction, bountyId);
+            }
+            case 'list':
+                return listOpenBounties(interaction);
+            case 'leaderboard':
+                return showLeaderboard(interaction);
+            case 'mytrophies': {
+                return showCompletedUserBounties(interaction);
+            }
+            default:
+                return interaction.reply({
+                    content: '❌ Unknown subcommand.',
+                    ephemeral: true,
+                });
         }
-        case 'complete': {
-            return completeBounty(interaction);
-        }
-        case 'cancel': {
-            const bountyId = interaction.options.getNumber('bounty_id', true);
-            return cancelBounty(interaction, bountyId);
-        }
-        case 'list':
-            return listOpenBounties(interaction);
-        // case 'leaderboard':
-        //   return showLeaderboard(interaction);
-        // case 'user': {
-        //   const user = interaction.options.getUser('user', true);
-        //   return showUserBounties(interaction, user);
-        // }
-        default:
-            return interaction.reply({
-                content: '❌ Unknown subcommand.',
-                ephemeral: true,
-            });
     }
-}
-async function checkBountySetterRole(guildId, member) {
-    const [rows] = await connection.execute('SELECT role_id FROM bounty_roles WHERE guild_id = ?', [guildId]);
-    if (rows.length === 0)
-        return false;
-    const roleId = rows[0].role_id;
-    return member.roles.cache.has(roleId);
+    catch (error) {
+        console.log('Error handling request', error);
+    }
 }

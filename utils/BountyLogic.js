@@ -185,7 +185,7 @@ export async function listOpenBounties(interaction) {
                 name: `#${b.id} — ${b.target_name}`,
                 value: `💰 **${b.reward} gold**\n` +
                     `Placed by: <@${b.placed_by_discord_id}>\n` +
-                    `${new Date(b.created_at).toLocaleDateString()}\n` +
+                    `<t:${Math.floor(new Date(b.created_at).getTime() / 1000)}:R>\n` +
                     `${b.reason} \n \n`,
                 inline: false,
             });
@@ -441,7 +441,7 @@ export async function getUserBounties(guildId, userId) {
     const [rows] = await connection.execute(`
     SELECT id, target_name, reward, completed_at
     FROM bounties
-    WHERE guild_id = ? AND completer_id = ?
+    WHERE guild_id = ? AND completed_by_discord_id = ?
     ORDER BY completed_at DESC
     `, [guildId, userId]);
     return rows;
@@ -477,27 +477,90 @@ async function giveUserGold(discordId, amount, guildId) {
 /**
  * Builds an embed leaderboard for the guild
  */
-export async function showLeaderboard(guildId) {
+export async function showLeaderboard(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const guildId = interaction.guildId;
     const leaderboard = await getGoldLeaderboard(guildId);
-    const fields = leaderboard.map((entry, index) => ({
-        name: `#${index + 1}`,
-        value: `<@${entry.user_id}> — 💰 **${entry.gold.toLocaleString()} gold**`,
-        inline: false,
-    }));
-    const embed = new EmbedBuilder()
-        .setTitle('🏆 Bounty Leaderboard')
-        .setDescription('Top gold holders in this server')
-        .setColor(0xf1c40f)
-        .addFields(fields.length
-        ? fields
-        : [{ name: 'No entries yet', value: 'Start completing bounties!' }])
-        .setTimestamp();
-    return embed;
+    const perPage = 10;
+    const totalPages = Math.ceil(leaderboard.length / perPage) || 1;
+    let currentPage = 0;
+    const generateEmbed = (page) => {
+        const start = page * perPage;
+        const pageEntries = leaderboard.slice(start, start + perPage);
+        const fields = pageEntries.length
+            ? pageEntries.map((entry, index) => ({
+                name: `#${start + index + 1}`,
+                value: `<@${entry.user_id}> — 💰 **${entry.gold.toLocaleString()} gold**`,
+                inline: false,
+            }))
+            : [{ name: 'No entries yet', value: 'Start completing bounties!' }];
+        return new EmbedBuilder()
+            .setTitle('🏆 Bounty Leaderboard')
+            .setDescription('Top gold holders in this server')
+            .setColor(0xf1c40f)
+            .addFields(fields)
+            .setFooter({
+            text: `Page ${page + 1} of ${totalPages}`,
+        })
+            .setTimestamp();
+    };
+    const generateButtons = () => {
+        return new ActionRowBuilder().addComponents(new ButtonBuilder()
+            .setCustomId('prev')
+            .setLabel('◀️ Previous')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentPage === 0), new ButtonBuilder()
+            .setCustomId('reset')
+            .setLabel('🔄 Reset')
+            .setStyle(ButtonStyle.Primary), new ButtonBuilder()
+            .setCustomId('next')
+            .setLabel('Next ▶️')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentPage === totalPages - 1));
+    };
+    const message = await interaction.editReply({
+        embeds: [generateEmbed(currentPage)],
+        components: [generateButtons()],
+    });
+    const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 60_000, // 1 minute timeout
+    });
+    collector.on('collect', async (i) => {
+        if (i.user.id !== interaction.user.id) {
+            await i.reply({ content: "You can't control this leaderboard.", ephemeral: true });
+            return;
+        }
+        switch (i.customId) {
+            case 'prev':
+                currentPage = Math.max(0, currentPage - 1);
+                break;
+            case 'next':
+                currentPage = Math.min(totalPages - 1, currentPage + 1);
+                break;
+            case 'reset':
+                currentPage = 0;
+                break;
+        }
+        await i.update({
+            embeds: [generateEmbed(currentPage)],
+            components: [generateButtons()],
+        });
+    });
+    collector.on('end', async () => {
+        await interaction.editReply({
+            embeds: [generateEmbed(currentPage)],
+            components: [], // remove buttons after timeout
+        });
+    });
 }
 /**
  * Builds an embed showing all bounties completed by a specific user
  */
-export async function showUserBounties(guildId, userId) {
+export async function showCompletedUserBounties(interaction) {
+    const guildId = interaction.guildId;
+    await interaction.deferReply();
+    const userId = interaction.user.id;
     const bounties = await getUserBounties(guildId, userId);
     const fields = bounties.map((bounty) => ({
         name: `${bounty.target_name}`,
@@ -515,7 +578,7 @@ export async function showUserBounties(guildId, userId) {
             },
         ])
         .setTimestamp();
-    return embed;
+    return interaction.editReply({ embeds: [embed] });
 }
 async function logBountyAction(bountyId, action, actorDiscordId) {
     await connection.execute(`INSERT INTO bounty_log (bounty_id, action, actor_discord_id)
