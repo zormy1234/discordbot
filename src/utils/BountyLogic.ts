@@ -514,10 +514,19 @@ export async function completeBounty(interaction: ChatInputCommandInteraction) {
       });
     }
 
-    if (!winner) {
+    if (!winner && !nonDiscordWinner) {
       return interaction.editReply({
         content: `⚠️ You must specify a winner when completing by ID.`,
       });
+    }
+
+    // 🚫 Prevent self-winning or target-winning
+    if (winner) {
+      if (winner.id === interaction.user.id) {
+        return interaction.editReply({
+          content: `🚫 You cannot mark **yourself** as the winner of this bounty.`,
+        });
+      }
     }
 
     const completedByDiscordId = winner ? winner.id : null;
@@ -526,11 +535,11 @@ export async function completeBounty(interaction: ChatInputCommandInteraction) {
     // ✅ Mark bounty complete
     await connection.execute(
       `UPDATE bounties
-         SET status = 'completed',
-             completed_by_discord_id = ?,
-             completed_by_name = ?,
-             completed_at = NOW()
-         WHERE id = ?`,
+           SET status = 'completed',
+               completed_by_discord_id = ?,
+               completed_by_name = ?,
+               completed_at = NOW()
+           WHERE id = ?`,
       [completedByDiscordId, completedByName, bountyId]
     );
 
@@ -608,27 +617,36 @@ export async function completeBounty(interaction: ChatInputCommandInteraction) {
       });
     }
 
+    if (winner) {
+      if (winner.id === interaction.user.id) {
+        return interaction.followUp({
+          content: `🚫 You cannot mark **yourself** as the winner of this bounty.`,
+          ephemeral: true,
+        });
+      }
+    }
+
     const completedByDiscordId = winner ? winner.id : null;
     const completedByName = winner ? winner.username : nonDiscordWinner!;
 
     // ✅ Mark bounty complete
     await connection.execute(
       `UPDATE bounties
-         SET status = 'completed',
-             completed_by_discord_id = ?,
-             completed_by_name = ?,
-             completed_at = NOW()
-         WHERE id = ?`,
+           SET status = 'completed',
+               completed_by_discord_id = ?,
+               completed_by_name = ?,
+               completed_at = NOW()
+           WHERE id = ?`,
       [completedByDiscordId, completedByName, bounty.id]
     );
 
     await logBountyAction(bounty.id, 'completed', interaction.user.id);
 
-    // ✅ Award gold (only to Discord winners)
     if (winner) await giveUserGold(winner.id, bounty.reward, guildId);
 
     await interaction.editReply({
-      content: `🏆 Bounty **#${bountyId}** on **${bounty.target_name}** has been completed!\nReward **${bounty.reward} gold** given to ${completedByName}.`,
+      content: `🏆 Bounty **#${bounty.id}** on **${bounty.target_name}** has been completed!\nReward **${bounty.reward} gold** given to ${completedByName}.`,
+      components: [],
     });
 
     collector.stop();
