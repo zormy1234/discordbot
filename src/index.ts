@@ -114,6 +114,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
+client.on('error', (err) => {
+  console.error('[Discord Client Error]', err);
+});
+
+client.rest.on('rateLimited', (info) => {
+  console.warn('[Rate Limited]', info);
+});
+
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Unhandled promise rejection:', reason);
 });

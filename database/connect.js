@@ -15,4 +15,7 @@ const poolOptions = {
     keepAliveInitialDelay: 30000,
 };
 const connection = mysql.createPool(poolOptions);
+connection.pool.on('error', (err) => {
+    console.error('MySQL pool error:', err);
+});
 export default connection;

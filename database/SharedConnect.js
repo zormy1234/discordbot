@@ -36,3 +36,6 @@ export async function writeWinLog(evt) {
         console.error('⚠️ writeWinLog internal failure:', err);
     }
 }
+connection.pool.on('error', (err) => {
+    console.error('MySQL pool error:', err);
+});

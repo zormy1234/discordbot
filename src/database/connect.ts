@@ -18,6 +18,10 @@ const poolOptions: PoolOptions = {
 
 const connection: Pool = mysql.createPool(poolOptions);
 
+connection.pool.on('error', (err) => {
+  console.error('MySQL pool error:', err);
+});
+
 export default connection;
 
 // Helper types for cleaner queries
