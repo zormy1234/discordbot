@@ -189,7 +189,7 @@ export async function listOpenBounties(interaction) {
         const pageRows = pages[index];
         // Page header embed
         const headerEmbed = new EmbedBuilder()
-            .setTitle('🎯 Active Bounties')
+            .setTitle(`🎯 ${rows.length} Active Bounties`)
             .setDescription(`Page ${index + 1}/${pages.length}`)
             .setTimestamp();
         const embeds = [headerEmbed];
