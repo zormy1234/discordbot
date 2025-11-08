@@ -26,6 +26,9 @@ export const data = new SlashCommandBuilder()
     .setName('winner')
     .setDescription('The user who completed the bounty'))
     .addStringOption((opt) => opt
+    .setName('image_link')
+    .setDescription('Optional image link as proof of completion (e.g. https://...)'))
+    .addStringOption((opt) => opt
     .setName('non_discord_winner')
     .setDescription('Use this field if the winner is not in discord'))
     .addStringOption((opt) => opt.setName('bounty_id').setDescription('The bounty ID to complete')))

@@ -105,7 +105,8 @@ export async function initDB() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       completed_at DATETIME NULL,
       reason VARCHAR(255) DEFAULT 'No reason given',
-      image_url VARCHAR(255) NULL
+      image_url VARCHAR(255) NULL,
+      completed_image_url VARCHAR(500) NULL
     );
 
     CREATE TABLE IF NOT EXISTS gold_balances (
