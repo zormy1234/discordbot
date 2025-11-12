@@ -49,8 +49,46 @@ export async function execute(interaction) {
       `;
         }
         if (days) {
-            query += ` AND last_entry >= NOW() - INTERVAL ? DAY`;
+            if (type === 'avg_kd') {
+                query = `
+          SELECT 
+            gid,
+            recent_name,
+            recent_clan_tag,
+            AVG(avg_kd) AS avg_kd,
+            COUNT(*) AS num_entries
+          FROM ${table}
+          WHERE last_entry >= NOW() - INTERVAL ? DAY
+        `;
+            }
+            else if (type === 'highest_kills') {
+                query = `
+          SELECT 
+            gid,
+            recent_name,
+            recent_clan_tag,
+            MAX(highest_kills) AS highest_kills
+          FROM ${table}
+          WHERE last_entry >= NOW() - INTERVAL ? DAY
+        `;
+            }
+            else if (type === 'highest_kd') {
+                query = `
+          SELECT 
+            gid,
+            recent_name,
+            recent_clan_tag,
+            MAX(highest_kd) AS highest_kd
+          FROM ${table}
+          WHERE last_entry >= NOW() - INTERVAL ? DAY
+        `;
+            }
             params.push(days);
+            if (clan) {
+                query += ` AND recent_clan_tag = ?`;
+                params.push(clan);
+            }
+            query += ` GROUP BY gid ORDER BY ${type} DESC LIMIT 50`;
         }
         if (clan) {
             query += ` AND recent_clan_tag = ?`;
