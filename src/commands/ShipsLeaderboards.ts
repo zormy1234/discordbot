@@ -116,15 +116,38 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           WHERE last_entry >= NOW() - INTERVAL ? DAY
         `;
       }
-    
+
       params.push(days);
-    
+
       if (clan) {
         query += ` AND recent_clan_tag = ?`;
         params.push(clan);
       }
-    
+
+      // 👇 Add GROUP BY + ORDER BY once
       query += ` GROUP BY gid ORDER BY ${type} DESC LIMIT 50`;
+    } else {
+      // 👇 Existing code for non-daily leaderboards
+      if (type === 'avg_kd') {
+        query = `
+          SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
+          FROM ${table}
+          WHERE num_entries >= 2
+        `;
+      } else {
+        query = `
+          SELECT gid, recent_name, recent_clan_tag, highest_kills, highest_kd
+          FROM ${table}
+          WHERE 1=1
+        `;
+      }
+
+      if (clan) {
+        query += ` AND recent_clan_tag = ?`;
+        params.push(clan);
+      }
+
+      query += ` ORDER BY ${type} DESC LIMIT 50`;
     }
 
     if (clan) {
@@ -135,10 +158,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     query += ` ORDER BY ${type} DESC LIMIT 50`;
 
     // Execute leaderboard query
-    const [rows] = (await connection.execute<RowDataPacket[]>(query, params)) as [
-      LeaderboardRow[],
-      any
-    ];
+    const [rows] = (await connection.execute<RowDataPacket[]>(
+      query,
+      params
+    )) as [LeaderboardRow[], any];
 
     // Global averages
     let avgQuery = `
@@ -156,10 +179,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       avgParams.push(days);
     }
 
-    const [avgRows] = (await connection.execute<RowDataPacket[]>(avgQuery, avgParams)) as [
-      LeaderboardRow[],
-      any
-    ];
+    const [avgRows] = (await connection.execute<RowDataPacket[]>(
+      avgQuery,
+      avgParams
+    )) as [LeaderboardRow[], any];
 
     const averages = avgRows[0];
 
@@ -250,7 +273,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       if (btn.customId === 'next') {
         currentPage = currentPage === pages.length - 1 ? 0 : currentPage + 1;
       }
-      
+
       const newRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId('prev')
@@ -278,7 +301,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           .setStyle(ButtonStyle.Primary)
           .setDisabled(true)
       );
-    
+
       // Reset to first page
       await interaction.editReply({
         embeds: [pages[0]],
