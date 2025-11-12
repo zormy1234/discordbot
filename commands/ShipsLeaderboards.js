@@ -117,7 +117,6 @@ export async function execute(interaction) {
             query += ` AND recent_clan_tag = ?`;
             params.push(clan);
         }
-        query += ` ORDER BY ${type} DESC LIMIT 50`;
         // Execute leaderboard query
         const [rows] = (await connection.execute(query, params));
         // Global averages

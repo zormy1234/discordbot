@@ -155,8 +155,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       params.push(clan);
     }
 
-    query += ` ORDER BY ${type} DESC LIMIT 50`;
-
     // Execute leaderboard query
     const [rows] = (await connection.execute<RowDataPacket[]>(
       query,
