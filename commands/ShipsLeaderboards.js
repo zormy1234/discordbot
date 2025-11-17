@@ -8,16 +8,21 @@ export const data = new SlashCommandBuilder()
     .setDescription('Leaderboard type')
     .setRequired(true)
     .addChoices({ name: 'Highest Kills', value: 'highest_kills' }, { name: 'Highest K/D', value: 'highest_kd' }, { name: 'Average K/D', value: 'avg_kd' }))
-    .addStringOption((option) => option
-    .setName('clan')
-    .setDescription('Filter leaderboard by clan tag (optional)')
-    .setRequired(false))
     .addIntegerOption((option) => option
     .setName('days')
     .setDescription('Show data from the last N days (optional)')
     .setRequired(false)
     .setMinValue(1)
-    .setMaxValue(60));
+    .setMaxValue(60))
+    .addIntegerOption((option) => option
+    .setName('min_kills')
+    .setDescription('Minimum total kills required for Avg K/D leaderboard')
+    .setRequired(false)
+    .setMinValue(0))
+    .addStringOption((option) => option
+    .setName('clan')
+    .setDescription('Filter leaderboard by clan tag (optional)')
+    .setRequired(false));
 const typeNames = {
     highest_kills: 'Highest Kills',
     highest_kd: 'Highest K/D',
@@ -29,25 +34,12 @@ export async function execute(interaction) {
         const type = interaction.options.getString('type', true);
         const clan = interaction.options.getString('clan')?.trim() || null;
         const days = interaction.options.getInteger('days') || null;
+        const minKills = interaction.options.getInteger('min_kills') ?? 0;
         // If days is provided, use daily table
         const table = days ? 'ships_daily_totals' : 'ships_totals';
         const params = [];
         // Build base query
         let query = '';
-        if (type === 'avg_kd') {
-            query = `
-        SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
-        FROM ${table}
-        WHERE num_entries >= 2
-      `;
-        }
-        else {
-            query = `
-        SELECT gid, recent_name, recent_clan_tag, highest_kills, highest_kd
-        FROM ${table}
-        WHERE 1=1
-      `;
-        }
         if (days) {
             if (type === 'avg_kd') {
                 query = `
@@ -98,14 +90,16 @@ export async function execute(interaction) {
           SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
           FROM ${table}
           WHERE num_entries >= 2
-        `;
+          AND total_kills >= ?
+          `;
+                params.push(minKills);
             }
             else {
                 query = `
           SELECT gid, recent_name, recent_clan_tag, highest_kills, highest_kd
           FROM ${table}
           WHERE 1=1
-        `;
+          `;
             }
             if (clan) {
                 query += ` AND recent_clan_tag = ?`;
@@ -170,7 +164,7 @@ export async function execute(interaction) {
                 description += `\nGlobal avg highest K/D: ${Number(averages.avg_highest_kd).toFixed(2)}`;
             }
             const embed = new EmbedBuilder()
-                .setTitle(`Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}${days ? ` — Last ${days} Days` : ''}`)
+                .setTitle(`Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}${days ? ` — Last ${days} Days` : ''}${type === 'avg_kd' && minKills > 0 ? ` — Min Kills: ${minKills}` : ''}`)
                 .setDescription(description)
                 .setColor(0x008494)
                 .setFooter({
