@@ -167,7 +167,8 @@ async function createBountyRecord(interaction, gid, name, reward, reason, imageU
     const bountyId = result.insertId;
     await logBountyAction(bountyId, 'created', interaction.user.id);
 }
-export async function listOpenBounties(interaction) {
+export async function listOpenBounties(interaction, oneLine = false // <-- new optional flag
+) {
     const guildId = interaction.guildId;
     await interaction.deferReply();
     const [rows] = await connection.execute(`SELECT id, target_name, reward, placed_by_discord_id, created_at, reason, image_url
@@ -179,7 +180,23 @@ export async function listOpenBounties(interaction) {
             content: '📭 There are currently **no active bounties** in this server.',
         });
     }
-    const pageSize = 3;
+    // ---------------------------------------------------------
+    //  🟦 ONE-LINE MODE
+    // ---------------------------------------------------------
+    if (oneLine) {
+        const lines = rows.map((b) => `• **${b.target_name}** — **${b.reward} gold**`);
+        const embed = new EmbedBuilder()
+            .setTitle(`🎯 ${rows.length} Active Bounties`)
+            .setDescription(lines.join("\n"))
+            .setTimestamp();
+        return interaction.editReply({
+            embeds: [embed],
+        });
+    }
+    // ---------------------------------------------------------
+    //  🟦 NORMAL PAGINATED MODE
+    // ---------------------------------------------------------
+    const pageSize = 4;
     const pages = [];
     for (let i = 0; i < rows.length; i += pageSize) {
         pages.push(rows.slice(i, i + pageSize));
@@ -187,13 +204,11 @@ export async function listOpenBounties(interaction) {
     let page = 0;
     const buildEmbeds = (index) => {
         const pageRows = pages[index];
-        // Page header embed
         const headerEmbed = new EmbedBuilder()
             .setTitle(`🎯 ${rows.length} Active Bounties`)
             .setDescription(`Page ${index + 1}/${pages.length}`)
             .setTimestamp();
         const embeds = [headerEmbed];
-        // Each bounty gets its own small embed
         for (const b of pageRows) {
             const e = new EmbedBuilder()
                 .setTitle(`#${b.id} — ${b.target_name}`)
@@ -210,12 +225,12 @@ export async function listOpenBounties(interaction) {
     };
     const makeRow = (index) => {
         return new ActionRowBuilder().addComponents(new ButtonBuilder()
-            .setCustomId('bounty_prev')
-            .setLabel('◀️ Prev')
+            .setCustomId("bounty_prev")
+            .setLabel("◀️ Prev")
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(index === 0), new ButtonBuilder()
-            .setCustomId('bounty_next')
-            .setLabel('Next ▶️')
+            .setCustomId("bounty_next")
+            .setLabel("Next ▶️")
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(index === pages.length - 1));
     };
@@ -232,22 +247,22 @@ export async function listOpenBounties(interaction) {
         componentType: ComponentType.Button,
         time: 60_000,
     });
-    collector.on('collect', async (i) => {
+    collector.on("collect", async (i) => {
         if (i.user.id !== interaction.user.id)
             return i.reply({
-                content: 'This menu isn’t for you.',
+                content: "This menu isn’t for you.",
                 ephemeral: true,
             });
-        if (i.customId === 'bounty_prev' && page > 0)
+        if (i.customId === "bounty_prev" && page > 0)
             page--;
-        else if (i.customId === 'bounty_next' && page < pages.length - 1)
+        else if (i.customId === "bounty_next" && page < pages.length - 1)
             page++;
         await i.update({
             embeds: buildEmbeds(page),
             components: [makeRow(page)],
         });
     });
-    collector.on('end', async () => {
+    collector.on("end", async () => {
         try {
             await interaction.editReply({ components: [] });
         }

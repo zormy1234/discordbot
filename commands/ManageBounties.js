@@ -39,7 +39,12 @@ export const data = new SlashCommandBuilder()
     .setName('bounty_id')
     .setDescription('The bounty ID to cancel')
     .setRequired(true)))
-    .addSubcommand((sub) => sub.setName('list').setDescription('List all active bounties'))
+    .addSubcommand((sub) => sub
+    .setName('list')
+    .setDescription('List all active bounties')
+    .addBooleanOption(opt => opt
+    .setName('oneline')
+    .setDescription('Show a simple one-line summary for each bounty')))
     .addSubcommand((sub) => sub.setName('leaderboard').setDescription('Show the gold leaderboard'))
     .addSubcommand((sub) => sub
     .setName('mytrophies')
@@ -59,7 +64,8 @@ export async function execute(interaction) {
                 return cancelBounty(interaction, bountyId);
             }
             case 'list':
-                return listOpenBounties(interaction);
+                const oneLine = interaction.options.getBoolean('oneline') ?? false;
+                return listOpenBounties(interaction, oneLine);
             case 'leaderboard':
                 return showLeaderboard(interaction);
             case 'mytrophies': {

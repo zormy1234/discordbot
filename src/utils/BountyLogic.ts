@@ -330,9 +330,9 @@ interface BountyRow extends RowDataPacket {
   created_at: Date;
   reason: string;
 }
-
 export async function listOpenBounties(
-  interaction: ChatInputCommandInteraction
+  interaction: ChatInputCommandInteraction,
+  oneLine = false // <-- new optional flag
 ) {
   const guildId = interaction.guildId!;
   await interaction.deferReply();
@@ -351,7 +351,29 @@ export async function listOpenBounties(
     });
   }
 
-  const pageSize = 3;
+  // ---------------------------------------------------------
+  //  🟦 ONE-LINE MODE
+  // ---------------------------------------------------------
+  if (oneLine) {
+    const lines = rows.map(
+      (b) => `• **${b.target_name}** — **${b.reward} gold**`
+    );
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🎯 ${rows.length} Active Bounties`)
+      .setDescription(lines.join("\n"))
+      .setTimestamp();
+
+    return interaction.editReply({
+      embeds: [embed],
+    });
+  }
+
+  // ---------------------------------------------------------
+  //  🟦 NORMAL PAGINATED MODE
+  // ---------------------------------------------------------
+
+  const pageSize = 4;
   const pages: BountyRow[][] = [];
 
   for (let i = 0; i < rows.length; i += pageSize) {
@@ -363,7 +385,6 @@ export async function listOpenBounties(
   const buildEmbeds = (index: number): EmbedBuilder[] => {
     const pageRows = pages[index];
 
-    // Page header embed
     const headerEmbed = new EmbedBuilder()
       .setTitle(`🎯 ${rows.length} Active Bounties`)
       .setDescription(`Page ${index + 1}/${pages.length}`)
@@ -371,15 +392,14 @@ export async function listOpenBounties(
 
     const embeds: EmbedBuilder[] = [headerEmbed];
 
-    // Each bounty gets its own small embed
     for (const b of pageRows) {
       const e = new EmbedBuilder()
         .setTitle(`#${b.id} — ${b.target_name}`)
         .setDescription(
           `💰 **${b.reward} gold**\n` +
-            `Placed by: <@${b.placed_by_discord_id}>\n` +
-            `<t:${Math.floor(new Date(b.created_at!).getTime() / 1000)}:R>\n` +
-            `${b.reason}`
+          `Placed by: <@${b.placed_by_discord_id}>\n` +
+          `<t:${Math.floor(new Date(b.created_at!).getTime() / 1000)}:R>\n` +
+          `${b.reason}`
         )
         .setTimestamp();
 
@@ -394,13 +414,13 @@ export async function listOpenBounties(
   const makeRow = (index: number): ActionRowBuilder<ButtonBuilder> => {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId('bounty_prev')
-        .setLabel('◀️ Prev')
+        .setCustomId("bounty_prev")
+        .setLabel("◀️ Prev")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(index === 0),
       new ButtonBuilder()
-        .setCustomId('bounty_next')
-        .setLabel('Next ▶️')
+        .setCustomId("bounty_next")
+        .setLabel("Next ▶️")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(index === pages.length - 1)
     );
@@ -425,15 +445,15 @@ export async function listOpenBounties(
     time: 60_000,
   });
 
-  collector.on('collect', async (i) => {
+  collector.on("collect", async (i) => {
     if (i.user.id !== interaction.user.id)
       return i.reply({
-        content: 'This menu isn’t for you.',
+        content: "This menu isn’t for you.",
         ephemeral: true,
       });
 
-    if (i.customId === 'bounty_prev' && page > 0) page--;
-    else if (i.customId === 'bounty_next' && page < pages.length - 1) page++;
+    if (i.customId === "bounty_prev" && page > 0) page--;
+    else if (i.customId === "bounty_next" && page < pages.length - 1) page++;
 
     await i.update({
       embeds: buildEmbeds(page),
@@ -441,7 +461,7 @@ export async function listOpenBounties(
     });
   });
 
-  collector.on('end', async () => {
+  collector.on("end", async () => {
     try {
       await interaction.editReply({ components: [] });
     } catch {}

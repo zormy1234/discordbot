@@ -73,7 +73,14 @@ export const data = new SlashCommandBuilder()
       )
   )
   .addSubcommand((sub) =>
-    sub.setName('list').setDescription('List all active bounties')
+    sub
+      .setName('list')
+      .setDescription('List all active bounties')
+      .addBooleanOption(opt =>
+        opt
+          .setName('oneline')
+          .setDescription('Show a simple one-line summary for each bounty')
+      )
   )
   .addSubcommand((sub) =>
     sub.setName('leaderboard').setDescription('Show the gold leaderboard')
@@ -103,7 +110,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
 
       case 'list':
-        return listOpenBounties(interaction);
+        const oneLine = interaction.options.getBoolean('oneline') ?? false;
+        return listOpenBounties(interaction, oneLine);
 
       case 'leaderboard':
         return showLeaderboard(interaction);
