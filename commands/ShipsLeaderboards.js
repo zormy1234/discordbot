@@ -7,7 +7,7 @@ export const data = new SlashCommandBuilder()
     .setName('type')
     .setDescription('Leaderboard type')
     .setRequired(true)
-    .addChoices({ name: 'Highest Kills', value: 'highest_kills' }, { name: 'Highest K/D', value: 'highest_kd' }, { name: 'Average K/D', value: 'avg_kd' }))
+    .addChoices({ name: 'Highest Kills', value: 'highest_kills' }, { name: 'Highest K/D', value: 'highest_kd' }, { name: 'Average K/D', value: 'avg_kd' }, { name: 'Total K/D (full KD)', value: 'full_avg_kd' }))
     .addIntegerOption((option) => option
     .setName('days')
     .setDescription('Show data from the last N days (optional)')
@@ -27,6 +27,7 @@ const typeNames = {
     highest_kills: 'Highest Kills',
     highest_kd: 'Highest K/D',
     avg_kd: 'Average K/D (min 5 games played)',
+    full_avg_kd: 'Total K/D (full KD)',
 };
 export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: false });
@@ -75,6 +76,17 @@ export async function execute(interaction) {
           WHERE last_entry >= NOW() - INTERVAL ? DAY
         `;
             }
+            else if (type === 'full_avg_kd') {
+                query = `
+          SELECT
+            gid,
+            recent_name,
+            recent_clan_tag,
+            AVG(full_avg_kd) AS full_avg_kd
+          FROM ${table}
+          WHERE last_entry >= NOW() - INTERVAL ? DAY
+        `;
+            }
             params.push(days);
             if (clan) {
                 query += ` AND recent_clan_tag = ?`;
@@ -91,6 +103,15 @@ export async function execute(interaction) {
           FROM ${table}
           WHERE num_entries >= 2
           AND total_kills >= ?
+          `;
+                params.push(minKills);
+            }
+            else if (type === 'full_avg_kd') {
+                query = `
+            SELECT gid, recent_name, recent_clan_tag, full_avg_kd
+            FROM ${table}
+             WHERE num_entries >= 2
+            AND total_kills >= ?
           `;
                 params.push(minKills);
             }
@@ -118,7 +139,8 @@ export async function execute(interaction) {
       SELECT
         AVG(highest_kills) AS avg_highest_kills,
         AVG(highest_kd) AS avg_highest_kd,
-        AVG(avg_kd) AS avg_avg_kd
+        AVG(avg_kd) AS avg_avg_kd,
+        AVG(full_avg_kd) AS avg_full_avg_kd
       FROM ${table}
       WHERE num_entries >= 2
     `;
@@ -147,6 +169,8 @@ export async function execute(interaction) {
                             return Number(r.highest_kd).toFixed(2);
                         case 'avg_kd':
                             return Number(r.avg_kd).toFixed(2);
+                        case 'full_avg_kd': // ← NEW
+                            return Number(r.full_avg_kd).toFixed(2);
                     }
                 })();
                 const name = r.recent_clan_tag
@@ -162,6 +186,9 @@ export async function execute(interaction) {
             }
             else if (type === 'highest_kd') {
                 description += `\nGlobal avg highest K/D: ${Number(averages.avg_highest_kd).toFixed(2)}`;
+            }
+            else if (type === 'full_avg_kd') {
+                description += `\nGlobal avg Total K/D: ${Number(averages.avg_full_avg_kd).toFixed(2)}`;
             }
             const embed = new EmbedBuilder()
                 .setTitle(`Leaderboard — ${typeNames[type]}${clan ? ` (Clan: ${clan})` : ''}${days ? ` — Last ${days} Days` : ''}${type === 'avg_kd' && minKills > 0 ? ` — Min Kills: ${minKills}` : ''}`)
