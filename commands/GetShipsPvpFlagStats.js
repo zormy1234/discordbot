@@ -100,15 +100,11 @@ export async function execute(interaction) {
                     ? new Date(stats.highest_kd_date).toLocaleDateString()
                     : 'Unknown'}`,
                 inline: false,
-            }, 
-            // {
-            //   name: 'Kills / Deaths (Highest K/D Match)',
-            //   value: `${stats.highest_kd_kills ?? 'N/A'} / ${
-            //     stats.highest_kd_deaths ?? 'N/A'
-            //   }`,
-            //   inline: false,
-            // },
-            {
+            }, {
+                name: 'Kills / Deaths (Highest K/D Match)',
+                value: `${stats.highest_kd_kills ?? 'N/A'} / ${stats.highest_kd_deaths ?? 'N/A'}`,
+                inline: false,
+            }, {
                 name: 'Average K/D',
                 value: stats.avg_kd ? stats.avg_kd.toFixed(2) : 'N/A',
                 inline: false,
