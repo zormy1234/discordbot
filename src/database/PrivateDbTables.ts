@@ -75,7 +75,6 @@ export async function initDB() {
       recent_clan_tag VARCHAR(255),
       last_entry TIMESTAMP NOT NULL
       );
-      ALTER TABLE ships_totals add column full_avg_kd FLOAT DEFAULT 0;
     
     CREATE TABLE IF NOT EXISTS ships_daily_totals (
       gid VARCHAR(64) NOT NULL,
@@ -93,7 +92,6 @@ export async function initDB() {
       PRIMARY KEY (gid, day)
     );
 
-      ALTER TABLE ships_daily_totals add column full_avg_kd FLOAT DEFAULT 0;
 
     CREATE TABLE IF NOT EXISTS bounties (
       id INT AUTO_INCREMENT PRIMARY KEY, 
