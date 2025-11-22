@@ -223,6 +223,12 @@ export async function storeInShipsDb(
                       ?, ?, ?
                   )
                   ON DUPLICATE KEY UPDATE
+                      full_avg_kd = CASE 
+                        WHEN (total_deaths + VALUES(total_deaths)) = 0
+                        THEN (total_kills + VALUES(total_kills))
+                        ELSE (total_kills + VALUES(total_kills)) / (total_deaths + VALUES(total_deaths))
+                      END,
+
                       total_kills = total_kills + VALUES(total_kills),
                       total_deaths = total_deaths + VALUES(total_deaths),
                       num_entries = num_entries + 1,
@@ -294,6 +300,13 @@ export async function storeInShipsDb(
         )
         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
+                full_avg_kd = CASE 
+                    WHEN (total_deaths + VALUES(total_deaths)) = 0
+                    THEN (total_kills + VALUES(total_kills))
+                    ELSE (total_kills + VALUES(total_kills)) /
+                        (total_deaths + VALUES(total_deaths))
+                  END,
+
                 total_kills = total_kills + VALUES(total_kills),
                 total_deaths = total_deaths + VALUES(total_deaths),
                 num_entries = num_entries + 1,

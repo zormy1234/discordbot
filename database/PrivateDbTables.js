@@ -53,27 +53,28 @@ export async function initDB() {
       created_at TIMESTAMP NOT NULL -- when entry was inserted
     );
 
-      CREATE TABLE IF NOT EXISTS ships_totals (
-        gid VARCHAR(64) PRIMARY KEY,
-        total_kills INT DEFAULT 0,
-        total_deaths INT DEFAULT 0,
-        avg_kd FLOAT DEFAULT 0,
-        num_entries INT DEFAULT 0,
-        highest_kd FLOAT DEFAULT 0,
-        highest_kd_date TIMESTAMP DEFAULT 0,
-        highest_kd_kills INT DEFAULT 0,
-        highest_kd_deaths INT DEFAULT 0,
-        highest_kills INT DEFAULT 0,
-        highest_kills_date TIMESTAMP DEFAULT 0,
-        highest_kills_deaths INT DEFAULT 0,
-        highest_deaths INT DEFAULT 0,
-        highest_deaths_date TIMESTAMP DEFAULT 0,
-        highest_deaths_kills INT DEFAULT 0,
-        all_names JSON DEFAULT (JSON_ARRAY()),
-        recent_name VARCHAR(255),
-        recent_clan_tag VARCHAR(255),
-        last_entry TIMESTAMP NOT NULL
-    );
+    CREATE TABLE IF NOT EXISTS ships_totals (
+      gid VARCHAR(64) PRIMARY KEY,
+      total_kills INT DEFAULT 0,
+      total_deaths INT DEFAULT 0,
+      avg_kd FLOAT DEFAULT 0,
+      num_entries INT DEFAULT 0,
+      highest_kd FLOAT DEFAULT 0,
+      highest_kd_date TIMESTAMP DEFAULT 0,
+      highest_kd_kills INT DEFAULT 0,
+      highest_kd_deaths INT DEFAULT 0,
+      highest_kills INT DEFAULT 0,
+      highest_kills_date TIMESTAMP DEFAULT 0,
+      highest_kills_deaths INT DEFAULT 0,
+      highest_deaths INT DEFAULT 0,
+      highest_deaths_date TIMESTAMP DEFAULT 0,
+      highest_deaths_kills INT DEFAULT 0,
+      all_names JSON DEFAULT (JSON_ARRAY()),
+      recent_name VARCHAR(255),
+      recent_clan_tag VARCHAR(255),
+      last_entry TIMESTAMP NOT NULL
+      );
+      ALTER TABLE ships_totals add column full_avg_kd FLOAT DEFAULT 0;
     
     CREATE TABLE IF NOT EXISTS ships_daily_totals (
       gid VARCHAR(64) NOT NULL,
@@ -90,6 +91,8 @@ export async function initDB() {
       last_entry TIMESTAMP NOT NULL,
       PRIMARY KEY (gid, day)
     );
+
+      ALTER TABLE ships_daily_totals add column full_avg_kd FLOAT DEFAULT 0;
 
     CREATE TABLE IF NOT EXISTS bounties (
       id INT AUTO_INCREMENT PRIMARY KEY, 
