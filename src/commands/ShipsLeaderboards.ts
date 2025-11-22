@@ -51,7 +51,7 @@ const typeNames: Record<string, string> = {
   highest_kills: 'Highest Kills',
   highest_kd: 'Highest K/D',
   avg_kd: 'Average K/D (min 5 games played)',
-  full_avg_kd: 'Total K/D (full KD)',
+  full_avg_kd: 'Total K/D (full KD, min 5 games played)',
 };
 
 interface LeaderboardRow extends RowDataPacket {
@@ -139,7 +139,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         query = `
           SELECT gid, recent_name, recent_clan_tag, avg_kd, num_entries
           FROM ${table}
-          WHERE num_entries >= 2
+          WHERE num_entries >= 5
           AND total_kills >= ?
           `;
         params.push(minKills);
@@ -147,7 +147,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         query = `
             SELECT gid, recent_name, recent_clan_tag, full_avg_kd
             FROM ${table}
-             WHERE num_entries >= 2
+             WHERE num_entries >= 5
             AND total_kills >= ?
           `;
         params.push(minKills);
