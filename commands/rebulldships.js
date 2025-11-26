@@ -17,7 +17,12 @@ export async function execute(interaction) {
         WHERE created_at >= '2025-10-03 10:00:00'
         ORDER BY created_at ASC
         `);
-        console.log("Count:", rows.length);
+        const cutoff = new Date('2025-10-03T10:00:00Z');
+        const filtered = rows.filter(r => {
+            return new Date(r.created_at) >= cutoff;
+        });
+        console.log("SQL returned:", rows.length);
+        console.log("JS filtered:", filtered.length);
         // Aggregators
         const totals = {};
         const daily = {};

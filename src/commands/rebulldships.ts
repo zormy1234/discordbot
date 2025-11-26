@@ -21,7 +21,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         WHERE created_at >= '2025-10-03 10:00:00'
         ORDER BY created_at ASC
         `);
-        console.log("Count:", (rows as any[]).length);
+        const cutoff = new Date('2025-10-03T10:00:00Z'); 
+
+        const filtered = (rows as any[]).filter(r => {
+          return new Date(r.created_at) >= cutoff;
+        });
+        
+        console.log("SQL returned:", (rows as any[]).length);
+        console.log("JS filtered:", filtered.length);
 
     // Aggregators
     const totals: Record<string, any> = {};
