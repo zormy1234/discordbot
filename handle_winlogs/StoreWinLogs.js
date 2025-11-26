@@ -129,6 +129,10 @@ export async function storeInShipsDb(lines, message) {
             continue;
         const { rank, gid, clan, username, score, kills, deaths } = line.parsed;
         const ts = message.createdAt;
+        const tsUtcString = (ts instanceof Date ? ts : new Date(ts))
+            .toISOString() // "2025-10-03T10:00:00.000Z"
+            .slice(0, 19) // "2025-10-03T10:00:00"
+            .replace('T', ' '); // "2025-10-03 10:00:00"
         try {
             await enqueueSharedDb('ships_history insert', () => connection.execute(`INSERT INTO ships_history
             (gid, username, clan_tag, rank, kills, deaths, created_at)
@@ -139,7 +143,7 @@ export async function storeInShipsDb(lines, message) {
                 rank,
                 kills,
                 deaths,
-                ts, // mysql2 will serialize Date -> DATETIME/TIMESTAMP
+                tsUtcString,
             ]));
         }
         catch (e) {
