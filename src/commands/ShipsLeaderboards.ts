@@ -167,11 +167,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       query += ` ORDER BY ${type} DESC LIMIT 50`;
     }
 
-    if (clan) {
-      query += ` AND recent_clan_tag = ?`;
-      params.push(clan);
-    }
-
     // Execute leaderboard query
     const [rows] = (await connection.execute<RowDataPacket[]>(
       query,
