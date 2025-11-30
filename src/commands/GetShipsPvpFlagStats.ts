@@ -115,7 +115,7 @@ import {
   
         if (!statsRows.length) {
           return selectInteraction.update({
-            content: `❌ No stats found for GID \`${gid}\`.`,
+            content: `❌ No stats found for GID \`${gid}\`. This only has data for flags games since early Sept 2025`,
             components: [],
           });
         }
