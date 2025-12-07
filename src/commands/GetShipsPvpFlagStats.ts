@@ -51,7 +51,7 @@ import {
   
       if (!rows.length) {
         return interaction.editReply(
-          `❌ No Ships3D players found for **${name}**${clan ? ` in clan ${clan}` : ''}.`
+          `❌ No Ships3D players found for **${name}**${clan ? ` in clan ${clan}. This only has data for flags games since early Sept 2025` : '. This only has data for flags games since early Sept 2025'}.`
         );
       }
   

@@ -29,7 +29,7 @@ export async function execute(interaction) {
         LIMIT 5
         `, clan ? [`%${name}%`, clan] : [`%${name}%`]);
         if (!rows.length) {
-            return interaction.editReply(`❌ No Ships3D players found for **${name}**${clan ? ` in clan ${clan}` : ''}.`);
+            return interaction.editReply(`❌ No Ships3D players found for **${name}**${clan ? ` in clan ${clan}. This only has data for flags games since early Sept 2025` : '. This only has data for flags games since early Sept 2025'}.`);
         }
         // Step 2: Let user pick which player
         const options = rows.map((r) => ({
