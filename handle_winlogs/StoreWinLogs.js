@@ -133,6 +133,11 @@ export async function storeInShipsDb(lines, message) {
             .toISOString() // "2025-10-03T10:00:00.000Z"
             .slice(0, 19) // "2025-10-03T10:00:00"
             .replace('T', ' '); // "2025-10-03 10:00:00"
+        // hack for now, for banned users. will put in properly later. 
+        if (gid === "a6a651d8d5fb4d43")
+            continue;
+        if (kills > 95)
+            continue;
         try {
             await enqueueSharedDb('ships_history insert', () => connection.execute(`INSERT INTO ships_history
             (gid, username, clan_tag, rank, kills, deaths, created_at)
