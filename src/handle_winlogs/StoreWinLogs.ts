@@ -170,7 +170,7 @@ export async function storeInShipsDb(
       .replace('T', ' '); // "2025-10-03 10:00:00"
 
     // hack for now, for banned users. will put in properly later. 
-    if (gid === "a6a651d8d5fb4d43") continue;
+    if (gid === "a6a651d8d5fb4d43" || gid === "c1f9b944b96f90f5") continue;
     if (kills > 85) continue;
 
     try {
