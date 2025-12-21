@@ -967,6 +967,7 @@ export async function showLeaderboard(
 /**
  * Builds an embed showing all bounties completed by a specific user
  */
+
 export async function showCompletedUserBounties(
   interaction: ChatInputCommandInteraction
 ) {
@@ -976,6 +977,12 @@ export async function showCompletedUserBounties(
   const userId = interaction.user.id;
   const bounties = await getUserBounties(guildId, userId);
 
+  if (bounties.length === 0) {
+    await interaction.editReply("You have no completed bounties.");
+    return;
+  }
+
+  // Convert bounties into embeds
   const embeds: APIEmbed[] = bounties.map((bounty) => {
     const embed: APIEmbed = {
       title: `${bounty.target_name}`,
@@ -991,11 +998,72 @@ export async function showCompletedUserBounties(
     return embed;
   });
 
-  await interaction.editReply({
+  // Paginate 5 embeds per page
+  const pageSize = 5;
+  const totalPages = Math.ceil(embeds.length / pageSize);
+  let currentPage = 0;
+
+  const generateButtons = () =>
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("previous")
+        .setLabel("⬅ Previous")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(currentPage === 0),
+      new ButtonBuilder()
+        .setCustomId("next")
+        .setLabel("Next ➡")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(currentPage === totalPages - 1)
+    );
+
+  const message = await interaction.editReply({
     content: `Here are the completed bounties:`,
-    embeds,
+    embeds: embeds.slice(currentPage * pageSize, (currentPage + 1) * pageSize),
+    components: [generateButtons()],
+  });
+
+  const collector = message.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 60000, // 1 minute
+  });
+
+  collector.on("collect", async (btnInteraction) => {
+    if (btnInteraction.user.id !== userId) {
+      await btnInteraction.reply({ content: "This is not for you!", ephemeral: true });
+      return;
+    }
+
+    if (btnInteraction.customId === "next") currentPage++;
+    if (btnInteraction.customId === "previous") currentPage--;
+
+    await btnInteraction.update({
+      embeds: embeds.slice(currentPage * pageSize, (currentPage + 1) * pageSize),
+      components: [generateButtons()],
+    });
+  });
+
+  collector.on("end", async () => {
+    // Disable buttons after collector ends
+    await interaction.editReply({
+      components: [
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId("previous")
+            .setLabel("⬅ Previous")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(true),
+          new ButtonBuilder()
+            .setCustomId("next")
+            .setLabel("Next ➡")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(true)
+        ),
+      ],
+    });
   });
 }
+
 
 async function logBountyAction(
   bountyId: number,
