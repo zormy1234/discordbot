@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import handleWinlogs from './handle_winlogs/ReceiveWinlogs.js';
 import './database/PrivateDbTables.js';
 import './database/SharedDbTables.js';
+import "./tracker";
 // __dirname replacement for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

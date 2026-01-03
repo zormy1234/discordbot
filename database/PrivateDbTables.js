@@ -130,6 +130,13 @@ export async function initDB() {
       guild_id VARCHAR(32) PRIMARY KEY,
       bounty_role_id VARCHAR(32) NOT NULL
     );
+
+    CREATE TABLE trader2_players (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      timestamp BIGINT NOT NULL,
+      playerCount INT NOT NULL,
+      INDEX (timestamp)
+    );
 `);
 }
 // Initialize immediately
