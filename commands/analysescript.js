@@ -105,44 +105,43 @@ async function analyzeDay(day) {
     };
 }
 /* ---------------- command ---------------- */
-export default {
-    data: new SlashCommandBuilder()
-        .setName("analyze-scaling")
-        .setDescription("Analyze scaling behavior for a specific day")
-        .addStringOption(opt => opt
-        .setName("day")
-        .setDescription("Day to analyze (YYYY-MM-DD)")
-        .setRequired(true))
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
-        try {
-            const day = interaction.options.getString("day", true);
-            const result = await analyzeDay(day);
-            let output = `📊 **Scaling Analysis – ${day}**\n\n` +
-                `Samples: **${result.samples}**\n\n` +
-                `🔁 **Immediate scaling**\n` +
-                `• Ups: **${result.immediateUps}**\n` +
-                `• Downs: **${result.immediateDowns}**\n\n` +
-                `⏱️ **Delayed scaling**\n` +
-                `• Ups: **${result.delayedUps}**\n` +
-                `• Downs: **${result.delayedDowns}**\n\n` +
-                `⚠️ **Delayed > 1 min events:** ${result.delayedSlower.length}\n`;
-            for (const e of result.delayedSlower.slice(0, 3)) {
-                output +=
-                    `\n➡️ ${e.from} → ${e.to} (delay ${(e.delayedTime - e.immediateTime) / 60000} min)\n`;
-                if (e.samples) {
-                    output += e.samples
-                        .map(s => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
-                        .join("\n");
-                    output += "\n";
-                }
+export const data = new SlashCommandBuilder()
+    .setName("analyze-scaling")
+    .setDescription("Analyze scaling behavior for a specific day")
+    .addStringOption(opt => opt
+    .setName("day")
+    .setDescription("Day to analyze (YYYY-MM-DD)")
+    .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+export async function execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+        const day = interaction.options.getString("day", true);
+        const result = await analyzeDay(day);
+        let output = `📊 **Scaling Analysis – ${day}**\n\n` +
+            `Samples: **${result.samples}**\n\n` +
+            `🔁 **Immediate scaling**\n` +
+            `• Ups: **${result.immediateUps}**\n` +
+            `• Downs: **${result.immediateDowns}**\n\n` +
+            `⏱️ **Delayed scaling**\n` +
+            `• Ups: **${result.delayedUps}**\n` +
+            `• Downs: **${result.delayedDowns}**\n\n` +
+            `⚠️ **Delayed > 1 min events:** ${result.delayedSlower.length}\n`;
+        for (const e of result.delayedSlower.slice(0, 3)) {
+            output +=
+                `\n➡️ ${e.from} → ${e.to} (delay ${(e.delayedTime - e.immediateTime) / 60000} min)\n`;
+            if (e.samples) {
+                output += e.samples
+                    .map(s => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
+                    .join("\n");
+                output += "\n";
             }
-            await interaction.editReply(output.slice(0, 1900));
         }
-        catch (err) {
-            console.error(err);
-            await interaction.editReply("❌ Analysis failed.");
-        }
+        await interaction.editReply(output.slice(0, 1900));
     }
-};
+    catch (err) {
+        console.error(err);
+        await interaction.editReply("❌ Analysis failed.");
+    }
+}
+;
