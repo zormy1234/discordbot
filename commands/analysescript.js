@@ -52,44 +52,47 @@ async function analyzeDay(day) {
         /* ---------- immediate ---------- */
         const nextImmediate = immediateScale(immediateSize, s.playerCount);
         if (nextImmediate !== immediateSize) {
-            const boundary = getBoundary(immediateSize, nextImmediate);
             const undone = immediateUndoWithin15Min(samples, i, immediateSize, nextImmediate);
             if (nextImmediate > immediateSize)
                 immediateUps++;
             else
                 immediateDowns++;
             immediateSize = nextImmediate;
-            if (pending) {
+            // if there is a pending delayed event, update undoneQuickly
+            if (pending)
                 pending.undoneQuickly = undone;
-            }
         }
         /* ---------- delayed ---------- */
-        if (!pending) {
-            const next = immediateScale(delayedSize, s.playerCount);
-            if (next !== delayedSize) {
-                pending = {
-                    from: delayedSize,
-                    to: next,
-                    immediateTime: s.timestamp,
-                    boundary: getBoundary(delayedSize, next),
-                };
-            }
+        const nextDelayed = immediateScale(delayedSize, s.playerCount);
+        // create new pending if needed
+        if (!pending && nextDelayed !== delayedSize) {
+            pending = {
+                from: delayedSize,
+                to: nextDelayed,
+                immediateTime: s.timestamp,
+                boundary: getBoundary(delayedSize, nextDelayed),
+            };
         }
-        else {
+        if (pending) {
             const diff = Math.abs(s.playerCount - pending.boundary);
+            // only trigger delayed scale when within boundary tolerance
             if (diff <= 10) {
                 pending.delayedTime = s.timestamp;
-                const delay = s.timestamp - pending.immediateTime;
+                const delay = pending.delayedTime - pending.immediateTime;
+                // only dump if delay > 2 mins
                 if (delay > DUMP_DELAY) {
                     pending.samples = samples.filter((x) => x.timestamp >= s.timestamp - TEN_MINUTES &&
                         x.timestamp <= s.timestamp);
                     delayedDumpEvents.push(pending);
                 }
+                // update delayed counters
                 if (pending.to > pending.from)
                     delayedUps++;
                 else
                     delayedDowns++;
+                // apply delayed size
                 delayedSize = pending.to;
+                // clear pending for next event
                 pending = null;
             }
         }
