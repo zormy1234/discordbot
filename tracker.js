@@ -11,7 +11,6 @@ async function trackPlayers() {
         }
         await connection.execute(`INSERT INTO trader2_players (timestamp, playerCount)
        VALUES (?, ?)`, [Date.now(), trader2.playerCount]);
-        console.log(`[${new Date().toISOString()}] Saved: ${trader2.playerCount}`);
     }
     catch (err) {
         console.error("Tracker error:", err);

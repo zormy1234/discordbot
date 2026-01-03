@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits, } from 'discord.js';
 import connection from '../database/connect.js';
 /* ---------------- config ---------------- */
 const TEN_MINUTES = 10 * 60 * 1000;
@@ -6,26 +6,26 @@ const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const DUMP_DELAY = 2 * 60 * 1000;
 /* ---------------- scaling rules ---------------- */
 function immediateScale(size, count) {
-    if (size === "small" && count > 35)
-        return "medium";
-    if (size === "medium" && count > 65)
-        return "large";
-    if (size === "large" && count < 50)
-        return "medium";
-    if (size === "medium" && count < 25)
-        return "small";
+    if (size === 'small' && count > 35)
+        return 'medium';
+    if (size === 'medium' && count > 65)
+        return 'large';
+    if (size === 'large' && count < 50)
+        return 'medium';
+    if (size === 'medium' && count < 25)
+        return 'small';
     return size;
 }
 function getBoundary(from, to) {
-    if (from === "small" && to === "medium")
+    if (from === 'small' && to === 'medium')
         return 35;
-    if (from === "medium" && to === "large")
+    if (from === 'medium' && to === 'large')
         return 65;
-    if (from === "large" && to === "medium")
+    if (from === 'large' && to === 'medium')
         return 50;
-    if (from === "medium" && to === "small")
+    if (from === 'medium' && to === 'small')
         return 25;
-    throw new Error("Invalid transition");
+    throw new Error('Invalid transition');
 }
 /* ---------------- analysis ---------------- */
 async function analyzeDay(day) {
@@ -35,12 +35,12 @@ async function analyzeDay(day) {
      FROM trader2_players
      WHERE timestamp BETWEEN ? AND ?
      ORDER BY timestamp ASC`, [start, end]);
-    const samples = rows.map(r => ({
+    const samples = rows.map((r) => ({
         timestamp: Number(r.timestamp),
-        playerCount: r.playerCount
+        playerCount: r.playerCount,
     }));
-    let immediateSize = "small";
-    let delayedSize = "small";
+    let immediateSize = 'small';
+    let delayedSize = 'small';
     let immediateUps = 0;
     let immediateDowns = 0;
     let delayedUps = 0;
@@ -71,7 +71,7 @@ async function analyzeDay(day) {
                     from: delayedSize,
                     to: next,
                     immediateTime: s.timestamp,
-                    boundary: getBoundary(delayedSize, next)
+                    boundary: getBoundary(delayedSize, next),
                 };
             }
         }
@@ -81,7 +81,7 @@ async function analyzeDay(day) {
                 pending.delayedTime = s.timestamp;
                 const delay = s.timestamp - pending.immediateTime;
                 if (delay > DUMP_DELAY) {
-                    pending.samples = samples.filter(x => x.timestamp >= s.timestamp - TEN_MINUTES &&
+                    pending.samples = samples.filter((x) => x.timestamp >= s.timestamp - TEN_MINUTES &&
                         x.timestamp <= s.timestamp);
                     delayedDumpEvents.push(pending);
                 }
@@ -100,23 +100,23 @@ async function analyzeDay(day) {
         immediateDowns,
         delayedUps,
         delayedDowns,
-        delayedDumpEvents
+        delayedDumpEvents,
     };
 }
 /* ---------------- command ---------------- */
 export default {
     data: new SlashCommandBuilder()
-        .setName("analyze-scaling")
-        .setDescription("Analyze scaling behavior for a specific day")
-        .addStringOption(opt => opt
-        .setName("day")
-        .setDescription("Day to analyze (YYYY-MM-DD)")
+        .setName('analyze-scaling')
+        .setDescription('Analyze scaling behavior for a specific day')
+        .addStringOption((opt) => opt
+        .setName('day')
+        .setDescription('Day to analyze (YYYY-MM-DD)')
         .setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
         try {
-            const day = interaction.options.getString("day", true);
+            const day = interaction.options.getString('day', true);
             const r = await analyzeDay(day);
             let output = `📊 **Scaling Analysis – ${day}**\n\n` +
                 `Samples: **${r.samples}**\n\n` +
@@ -131,21 +131,21 @@ export default {
                 output +=
                     `\n➡️ ${e.from} → ${e.to}\n` +
                         `Delay: **${((e.delayedTime - e.immediateTime) / 60000).toFixed(2)} min**\n` +
-                        `Immediate undo within 15 min: **${e.undoneQuickly ? "YES ⚠️" : "NO"}**\n`;
+                        `Immediate undo within 15 min: **${e.undoneQuickly ? 'YES ⚠️' : 'NO'}**\n`;
                 if (e.samples) {
                     output += e.samples
-                        .map(s => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
-                        .join("\n");
-                    output += "\n";
+                        .map((s) => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
+                        .join('\n');
+                    output += '\n';
                 }
             }
             await interaction.editReply(output.slice(0, 1900));
         }
         catch (err) {
             console.error(err);
-            await interaction.editReply("❌ Analysis failed.");
+            await interaction.editReply('❌ Analysis failed.');
         }
-    }
+    },
 };
 function immediateUndoWithin15Min(samples, startIndex, from, to) {
     let size = to;

@@ -28,9 +28,6 @@ async function trackPlayers(): Promise<void> {
       [Date.now(), trader2.playerCount]
     );
 
-    console.log(
-      `[${new Date().toISOString()}] Saved: ${trader2.playerCount}`
-    );
   } catch (err) {
     console.error("Tracker error:", err);
   }

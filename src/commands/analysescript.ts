@@ -1,55 +1,52 @@
 import {
-    SlashCommandBuilder,
-    ChatInputCommandInteraction,
-    PermissionFlagsBits
-  } from "discord.js";
-  import connection from '../database/connect.js';
-  
-  /* ---------------- types ---------------- */
-  
-  interface Sample {
-    timestamp: number;
-    playerCount: number;
-  }
-  
-  type Size = "small" | "medium" | "large";
-  
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+} from 'discord.js';
+import connection from '../database/connect.js';
 
-  interface ScaleEvent {
-    from: Size;
-    to: Size;
-    immediateTime: number;
-    delayedTime?: number;
-    boundary: number;
-    samples?: Sample[];
-    undoneQuickly?: boolean;
-  }
-  
-  /* ---------------- config ---------------- */
-  
-  const TEN_MINUTES = 10 * 60 * 1000;
-  const FIFTEEN_MINUTES = 15 * 60 * 1000;
-  const DUMP_DELAY = 2 * 60 * 1000;
-  
+/* ---------------- types ---------------- */
 
-  
-  /* ---------------- scaling rules ---------------- */
-  
-  function immediateScale(size: Size, count: number): Size {
-    if (size === "small" && count > 35) return "medium";
-    if (size === "medium" && count > 65) return "large";
-    if (size === "large" && count < 50) return "medium";
-    if (size === "medium" && count < 25) return "small";
-    return size;
-  }
-  
-  function getBoundary(from: Size, to: Size): number {
-    if (from === "small" && to === "medium") return 35;
-    if (from === "medium" && to === "large") return 65;
-    if (from === "large" && to === "medium") return 50;
-    if (from === "medium" && to === "small") return 25;
-    throw new Error("Invalid transition");
-  }
+interface Sample {
+  timestamp: number;
+  playerCount: number;
+}
+
+type Size = 'small' | 'medium' | 'large';
+
+interface ScaleEvent {
+  from: Size;
+  to: Size;
+  immediateTime: number;
+  delayedTime?: number;
+  boundary: number;
+  samples?: Sample[];
+  undoneQuickly?: boolean;
+}
+
+/* ---------------- config ---------------- */
+
+const TEN_MINUTES = 10 * 60 * 1000;
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
+const DUMP_DELAY = 2 * 60 * 1000;
+
+/* ---------------- scaling rules ---------------- */
+
+function immediateScale(size: Size, count: number): Size {
+  if (size === 'small' && count > 35) return 'medium';
+  if (size === 'medium' && count > 65) return 'large';
+  if (size === 'large' && count < 50) return 'medium';
+  if (size === 'medium' && count < 25) return 'small';
+  return size;
+}
+
+function getBoundary(from: Size, to: Size): number {
+  if (from === 'small' && to === 'medium') return 35;
+  if (from === 'medium' && to === 'large') return 65;
+  if (from === 'large' && to === 'medium') return 50;
+  if (from === 'medium' && to === 'small') return 25;
+  throw new Error('Invalid transition');
+}
 /* ---------------- analysis ---------------- */
 
 async function analyzeDay(day: string) {
@@ -64,13 +61,13 @@ async function analyzeDay(day: string) {
     [start, end]
   );
 
-  const samples: Sample[] = rows.map(r => ({
+  const samples: Sample[] = rows.map((r) => ({
     timestamp: Number(r.timestamp),
-    playerCount: r.playerCount
+    playerCount: r.playerCount,
   }));
 
-  let immediateSize: Size = "small";
-  let delayedSize: Size = "small";
+  let immediateSize: Size = 'small';
+  let delayedSize: Size = 'small';
 
   let immediateUps = 0;
   let immediateDowns = 0;
@@ -113,7 +110,7 @@ async function analyzeDay(day: string) {
           from: delayedSize,
           to: next,
           immediateTime: s.timestamp,
-          boundary: getBoundary(delayedSize, next)
+          boundary: getBoundary(delayedSize, next),
         };
       }
     } else {
@@ -125,7 +122,7 @@ async function analyzeDay(day: string) {
 
         if (delay > DUMP_DELAY) {
           pending.samples = samples.filter(
-            x =>
+            (x) =>
               x.timestamp >= s.timestamp - TEN_MINUTES &&
               x.timestamp <= s.timestamp
           );
@@ -147,7 +144,7 @@ async function analyzeDay(day: string) {
     immediateDowns,
     delayedUps,
     delayedDowns,
-    delayedDumpEvents
+    delayedDumpEvents,
   };
 }
 
@@ -155,12 +152,12 @@ async function analyzeDay(day: string) {
 
 export default {
   data: new SlashCommandBuilder()
-    .setName("analyze-scaling")
-    .setDescription("Analyze scaling behavior for a specific day")
-    .addStringOption(opt =>
+    .setName('analyze-scaling')
+    .setDescription('Analyze scaling behavior for a specific day')
+    .addStringOption((opt) =>
       opt
-        .setName("day")
-        .setDescription("Day to analyze (YYYY-MM-DD)")
+        .setName('day')
+        .setDescription('Day to analyze (YYYY-MM-DD)')
         .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -169,7 +166,7 @@ export default {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const day = interaction.options.getString("day", true);
+      const day = interaction.options.getString('day', true);
       const r = await analyzeDay(day);
 
       let output =
@@ -190,45 +187,45 @@ export default {
             2
           )} min**\n` +
           `Immediate undo within 15 min: **${
-            e.undoneQuickly ? "YES ⚠️" : "NO"
+            e.undoneQuickly ? 'YES ⚠️' : 'NO'
           }**\n`;
 
         if (e.samples) {
           output += e.samples
             .map(
-              s =>
+              (s) =>
                 `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`
             )
-            .join("\n");
-          output += "\n";
+            .join('\n');
+          output += '\n';
         }
       }
 
       await interaction.editReply(output.slice(0, 1900));
     } catch (err) {
       console.error(err);
-      await interaction.editReply("❌ Analysis failed.");
+      await interaction.editReply('❌ Analysis failed.');
     }
-  }
+  },
 };
-  function immediateUndoWithin15Min(
-    samples: Sample[],
-    startIndex: number,
-    from: Size,
-    to: Size
-  ): boolean {
-    let size = to;
-    const startTime = samples[startIndex].timestamp;
-  
-    for (let i = startIndex + 1; i < samples.length; i++) {
-      if (samples[i].timestamp - startTime > FIFTEEN_MINUTES) break;
-  
-      const next = immediateScale(size, samples[i].playerCount);
-      if (next !== size) {
-        size = next;
-        if (size === from) return true;
-      }
+function immediateUndoWithin15Min(
+  samples: Sample[],
+  startIndex: number,
+  from: Size,
+  to: Size
+): boolean {
+  let size = to;
+  const startTime = samples[startIndex].timestamp;
+
+  for (let i = startIndex + 1; i < samples.length; i++) {
+    if (samples[i].timestamp - startTime > FIFTEEN_MINUTES) break;
+
+    const next = immediateScale(size, samples[i].playerCount);
+    if (next !== size) {
+      size = next;
+      if (size === from) return true;
     }
-  
-    return false;
   }
+
+  return false;
+}
