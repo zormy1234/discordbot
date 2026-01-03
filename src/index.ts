@@ -17,7 +17,7 @@ import './database/PrivateDbTables.js'
 import './database/SharedDbTables.js'
 import { enqueuePrivateDb } from './database/dbQueue.js';
 
-import "./tracker";
+import "./tracker.js";
 
 // __dirname replacement for ES Modules
 const __filename = fileURLToPath(import.meta.url);
