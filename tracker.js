@@ -1,14 +1,5 @@
-import mysql from "mysql2/promise";
+import connection from './database/connect.js';
 const URL = "https://yp3d.com/ships3d-game/list-servers/";
-// 🔒 put these in env vars in production
-const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 5
-});
 async function trackPlayers() {
     try {
         const res = await fetch(URL);
@@ -18,7 +9,7 @@ async function trackPlayers() {
             console.warn("Trader #2 not found");
             return;
         }
-        await pool.execute(`INSERT INTO trader2_players (timestamp, playerCount)
+        await connection.execute(`INSERT INTO trader2_players (timestamp, playerCount)
        VALUES (?, ?)`, [Date.now(), trader2.playerCount]);
         console.log(`[${new Date().toISOString()}] Saved: ${trader2.playerCount}`);
     }

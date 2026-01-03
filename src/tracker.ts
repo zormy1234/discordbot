@@ -4,18 +4,9 @@ interface ServerInfo {
   serverName: string;
   playerCount: number;
 }
+import connection from './database/connect.js';
 
 const URL = "https://yp3d.com/ships3d-game/list-servers/";
-
-// 🔒 put these in env vars in production
-const pool = mysql.createPool({
-  host: process.env.DB_HOST!,
-  user: process.env.DB_USER!,
-  password: process.env.DB_PASS!,
-  database: process.env.DB_NAME!,
-  waitForConnections: true,
-  connectionLimit: 5
-});
 
 async function trackPlayers(): Promise<void> {
   try {
@@ -31,7 +22,7 @@ async function trackPlayers(): Promise<void> {
       return;
     }
 
-    await pool.execute(
+    await connection.execute(
       `INSERT INTO trader2_players (timestamp, playerCount)
        VALUES (?, ?)`,
       [Date.now(), trader2.playerCount]
