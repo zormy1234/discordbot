@@ -2,7 +2,8 @@ import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 import connection from '../database/connect.js';
 /* ---------------- config ---------------- */
 const TEN_MINUTES = 10 * 60 * 1000;
-const ONE_MINUTE = 60 * 1000;
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
+const DUMP_DELAY = 2 * 60 * 1000;
 /* ---------------- scaling rules ---------------- */
 function immediateScale(size, count) {
     if (size === "small" && count > 35)
@@ -31,9 +32,9 @@ async function analyzeDay(day) {
     const start = new Date(`${day}T00:00:00Z`).getTime();
     const end = new Date(`${day}T23:59:59Z`).getTime();
     const [rows] = await connection.query(`SELECT timestamp, playerCount
-       FROM trader2_players
-       WHERE timestamp BETWEEN ? AND ?
-       ORDER BY timestamp ASC`, [start, end]);
+     FROM trader2_players
+     WHERE timestamp BETWEEN ? AND ?
+     ORDER BY timestamp ASC`, [start, end]);
     const samples = rows.map(r => ({
         timestamp: Number(r.timestamp),
         playerCount: r.playerCount
@@ -44,7 +45,7 @@ async function analyzeDay(day) {
     let immediateDowns = 0;
     let delayedUps = 0;
     let delayedDowns = 0;
-    const events = [];
+    const delayedDumpEvents = [];
     let pending = null;
     for (let i = 0; i < samples.length; i++) {
         const s = samples[i];
@@ -52,17 +53,15 @@ async function analyzeDay(day) {
         const nextImmediate = immediateScale(immediateSize, s.playerCount);
         if (nextImmediate !== immediateSize) {
             const boundary = getBoundary(immediateSize, nextImmediate);
-            events.push({
-                from: immediateSize,
-                to: nextImmediate,
-                immediateTime: s.timestamp,
-                boundary
-            });
+            const undone = immediateUndoWithin15Min(samples, i, immediateSize, nextImmediate);
             if (nextImmediate > immediateSize)
                 immediateUps++;
             else
                 immediateDowns++;
             immediateSize = nextImmediate;
+            if (pending) {
+                pending.undoneQuickly = undone;
+            }
         }
         /* ---------- delayed ---------- */
         if (!pending) {
@@ -81,15 +80,15 @@ async function analyzeDay(day) {
             if (diff <= 10) {
                 pending.delayedTime = s.timestamp;
                 const delay = s.timestamp - pending.immediateTime;
-                if (delay > ONE_MINUTE) {
+                if (delay > DUMP_DELAY) {
                     pending.samples = samples.filter(x => x.timestamp >= s.timestamp - TEN_MINUTES &&
                         x.timestamp <= s.timestamp);
+                    delayedDumpEvents.push(pending);
                 }
                 if (pending.to > pending.from)
                     delayedUps++;
                 else
                     delayedDowns++;
-                events.push(pending);
                 delayedSize = pending.to;
                 pending = null;
             }
@@ -101,47 +100,65 @@ async function analyzeDay(day) {
         immediateDowns,
         delayedUps,
         delayedDowns,
-        delayedSlower: events.filter(e => e.delayedTime && e.delayedTime - e.immediateTime > ONE_MINUTE)
+        delayedDumpEvents
     };
 }
 /* ---------------- command ---------------- */
-export const data = new SlashCommandBuilder()
-    .setName("analyze-scaling")
-    .setDescription("Analyze scaling behavior for a specific day")
-    .addStringOption(opt => opt
-    .setName("day")
-    .setDescription("Day to analyze (YYYY-MM-DD)")
-    .setRequired(true))
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
-export async function execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    try {
-        const day = interaction.options.getString("day", true);
-        const result = await analyzeDay(day);
-        let output = `📊 **Scaling Analysis – ${day}**\n\n` +
-            `Samples: **${result.samples}**\n\n` +
-            `🔁 **Immediate scaling**\n` +
-            `• Ups: **${result.immediateUps}**\n` +
-            `• Downs: **${result.immediateDowns}**\n\n` +
-            `⏱️ **Delayed scaling**\n` +
-            `• Ups: **${result.delayedUps}**\n` +
-            `• Downs: **${result.delayedDowns}**\n\n` +
-            `⚠️ **Delayed > 1 min events:** ${result.delayedSlower.length}\n`;
-        for (const e of result.delayedSlower.slice(0, 3)) {
-            output +=
-                `\n➡️ ${e.from} → ${e.to} (delay ${(e.delayedTime - e.immediateTime) / 60000} min)\n`;
-            if (e.samples) {
-                output += e.samples
-                    .map(s => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
-                    .join("\n");
-                output += "\n";
+export default {
+    data: new SlashCommandBuilder()
+        .setName("analyze-scaling")
+        .setDescription("Analyze scaling behavior for a specific day")
+        .addStringOption(opt => opt
+        .setName("day")
+        .setDescription("Day to analyze (YYYY-MM-DD)")
+        .setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    async execute(interaction) {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+            const day = interaction.options.getString("day", true);
+            const r = await analyzeDay(day);
+            let output = `📊 **Scaling Analysis – ${day}**\n\n` +
+                `Samples: **${r.samples}**\n\n` +
+                `🔁 **Immediate scaling**\n` +
+                `• Ups: **${r.immediateUps}**\n` +
+                `• Downs: **${r.immediateDowns}**\n\n` +
+                `⏱️ **Delayed scaling**\n` +
+                `• Ups: **${r.delayedUps}**\n` +
+                `• Downs: **${r.delayedDowns}**\n\n` +
+                `⚠️ **Delayed > 2 min events:** ${r.delayedDumpEvents.length}\n`;
+            for (const e of r.delayedDumpEvents.slice(0, 3)) {
+                output +=
+                    `\n➡️ ${e.from} → ${e.to}\n` +
+                        `Delay: **${((e.delayedTime - e.immediateTime) / 60000).toFixed(2)} min**\n` +
+                        `Immediate undo within 15 min: **${e.undoneQuickly ? "YES ⚠️" : "NO"}**\n`;
+                if (e.samples) {
+                    output += e.samples
+                        .map(s => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
+                        .join("\n");
+                    output += "\n";
+                }
             }
+            await interaction.editReply(output.slice(0, 1900));
         }
-        await interaction.editReply(output.slice(0, 1900));
+        catch (err) {
+            console.error(err);
+            await interaction.editReply("❌ Analysis failed.");
+        }
     }
-    catch (err) {
-        console.error(err);
-        await interaction.editReply("❌ Analysis failed.");
+};
+function immediateUndoWithin15Min(samples, startIndex, from, to) {
+    let size = to;
+    const startTime = samples[startIndex].timestamp;
+    for (let i = startIndex + 1; i < samples.length; i++) {
+        if (samples[i].timestamp - startTime > FIFTEEN_MINUTES)
+            break;
+        const next = immediateScale(size, samples[i].playerCount);
+        if (next !== size) {
+            size = next;
+            if (size === from)
+                return true;
+        }
     }
+    return false;
 }
-;
