@@ -150,19 +150,18 @@ async function analyzeDay(day: string) {
 
 /* ---------------- command ---------------- */
 
-export default {
-  data: new SlashCommandBuilder()
-    .setName('analyze-scaling')
-    .setDescription('Analyze scaling behavior for a specific day')
-    .addStringOption((opt) =>
-      opt
-        .setName('day')
-        .setDescription('Day to analyze (YYYY-MM-DD)')
-        .setRequired(true)
-    )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+export const data = new SlashCommandBuilder()
+.setName('analyze-scaling')
+.setDescription('Analyze scaling behavior for a specific day')
+.addStringOption((opt) =>
+  opt
+    .setName('day')
+    .setDescription('Day to analyze (YYYY-MM-DD)')
+    .setRequired(true)
+)
+.setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
-  async execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply({ ephemeral: true });
 
     try {
@@ -206,7 +205,6 @@ export default {
       console.error(err);
       await interaction.editReply('❌ Analysis failed.');
     }
-  },
 };
 function immediateUndoWithin15Min(
   samples: Sample[],

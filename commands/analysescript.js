@@ -104,49 +104,48 @@ async function analyzeDay(day) {
     };
 }
 /* ---------------- command ---------------- */
-export default {
-    data: new SlashCommandBuilder()
-        .setName('analyze-scaling')
-        .setDescription('Analyze scaling behavior for a specific day')
-        .addStringOption((opt) => opt
-        .setName('day')
-        .setDescription('Day to analyze (YYYY-MM-DD)')
-        .setRequired(true))
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
-        try {
-            const day = interaction.options.getString('day', true);
-            const r = await analyzeDay(day);
-            let output = `📊 **Scaling Analysis – ${day}**\n\n` +
-                `Samples: **${r.samples}**\n\n` +
-                `🔁 **Immediate scaling**\n` +
-                `• Ups: **${r.immediateUps}**\n` +
-                `• Downs: **${r.immediateDowns}**\n\n` +
-                `⏱️ **Delayed scaling**\n` +
-                `• Ups: **${r.delayedUps}**\n` +
-                `• Downs: **${r.delayedDowns}**\n\n` +
-                `⚠️ **Delayed > 2 min events:** ${r.delayedDumpEvents.length}\n`;
-            for (const e of r.delayedDumpEvents.slice(0, 3)) {
-                output +=
-                    `\n➡️ ${e.from} → ${e.to}\n` +
-                        `Delay: **${((e.delayedTime - e.immediateTime) / 60000).toFixed(2)} min**\n` +
-                        `Immediate undo within 15 min: **${e.undoneQuickly ? 'YES ⚠️' : 'NO'}**\n`;
-                if (e.samples) {
-                    output += e.samples
-                        .map((s) => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
-                        .join('\n');
-                    output += '\n';
-                }
+export const data = new SlashCommandBuilder()
+    .setName('analyze-scaling')
+    .setDescription('Analyze scaling behavior for a specific day')
+    .addStringOption((opt) => opt
+    .setName('day')
+    .setDescription('Day to analyze (YYYY-MM-DD)')
+    .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+export async function execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    try {
+        const day = interaction.options.getString('day', true);
+        const r = await analyzeDay(day);
+        let output = `📊 **Scaling Analysis – ${day}**\n\n` +
+            `Samples: **${r.samples}**\n\n` +
+            `🔁 **Immediate scaling**\n` +
+            `• Ups: **${r.immediateUps}**\n` +
+            `• Downs: **${r.immediateDowns}**\n\n` +
+            `⏱️ **Delayed scaling**\n` +
+            `• Ups: **${r.delayedUps}**\n` +
+            `• Downs: **${r.delayedDowns}**\n\n` +
+            `⚠️ **Delayed > 2 min events:** ${r.delayedDumpEvents.length}\n`;
+        for (const e of r.delayedDumpEvents.slice(0, 3)) {
+            output +=
+                `\n➡️ ${e.from} → ${e.to}\n` +
+                    `Delay: **${((e.delayedTime - e.immediateTime) / 60000).toFixed(2)} min**\n` +
+                    `Immediate undo within 15 min: **${e.undoneQuickly ? 'YES ⚠️' : 'NO'}**\n`;
+            if (e.samples) {
+                output += e.samples
+                    .map((s) => `• ${new Date(s.timestamp).toISOString()} → ${s.playerCount}`)
+                    .join('\n');
+                output += '\n';
             }
-            await interaction.editReply(output.slice(0, 1900));
         }
-        catch (err) {
-            console.error(err);
-            await interaction.editReply('❌ Analysis failed.');
-        }
-    },
-};
+        await interaction.editReply(output.slice(0, 1900));
+    }
+    catch (err) {
+        console.error(err);
+        await interaction.editReply('❌ Analysis failed.');
+    }
+}
+;
 function immediateUndoWithin15Min(samples, startIndex, from, to) {
     let size = to;
     const startTime = samples[startIndex].timestamp;
