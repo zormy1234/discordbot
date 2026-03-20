@@ -63,7 +63,7 @@ export async function createBounty(interaction) {
        FROM bounties
        WHERE placed_by_discord_id = ? AND guild_id = ? AND status = 'active'`, [interaction.user.id, guildId]);
     const total = countRows[0].total;
-    if (total >= 10) {
+    if (total >= 12) {
         return interaction.editReply({
             content: `🚫 You already have the maximum number of allowed open bounties (${total}).`,
         });

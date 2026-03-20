@@ -124,7 +124,7 @@ export async function createBounty(interaction: ChatInputCommandInteraction) {
   );
   const total = countRows[0].total as number;
 
-  if (total >= 10) {
+  if (total >= 12) {
     return interaction.editReply({
       content: `🚫 You already have the maximum number of allowed open bounties (${total}).`,
     });
