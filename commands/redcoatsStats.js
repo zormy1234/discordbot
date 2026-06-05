@@ -19,7 +19,9 @@ export const data = new SlashCommandBuilder()
     .addStringOption((o) => o
     .setName('metric')
     .setDescription('Metric')
-    .addChoices({ name: 'Total Player Kills', value: 'total_player_kills' }, { name: 'Highest Score', value: 'highest_score' }, { name: 'Average KD', value: 'average_kd' }, { name: 'Best Single Game KD', value: 'best_single_game_kd' }))
+    .addChoices(
+// { name: 'Total Player Kills', value: 'total_player_kills' },
+{ name: 'Highest Score', value: 'highest_score' }, { name: 'Average KD', value: 'average_kd' }, { name: 'Best Single Game KD', value: 'best_single_game_kd' }))
     .addBooleanOption((o) => o
     .setName('alltime')
     .setDescription('Use all time stats')
