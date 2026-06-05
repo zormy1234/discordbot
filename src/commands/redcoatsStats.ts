@@ -357,7 +357,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           });
         }
 
-        const MAX_POINTS = 65;
+        const MAX_POINTS = 50;
         const n = statsRows.length;
 
         const labels: string[] = [];

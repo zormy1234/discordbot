@@ -243,7 +243,7 @@ export async function execute(interaction) {
                         components: [],
                     });
                 }
-                const MAX_POINTS = 65;
+                const MAX_POINTS = 50;
                 const n = statsRows.length;
                 const labels = [];
                 const kdData = [];
