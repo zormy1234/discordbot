@@ -1,13 +1,15 @@
 import {
     SlashCommandBuilder,
     ChatInputCommandInteraction,
+    PermissionFlagsBits,
+    ChannelType,
     TextChannel,
+    NewsChannel,
   } from 'discord.js';
   
-  import { RowDataPacket } from 'mysql2/promise';
   import connection from '../database/connect.js';
   
-  export interface ParsedPlayerResult {
+  interface ParsedPlayerResult {
     rank: number;
     gid: string;
     clan: string | null;
@@ -33,10 +35,9 @@ import {
   }
   
   class RedcoatsImporter {
-    /**
-     * Fetch every message in channel
-     */
-    async fetchAllMessages(channel: TextChannel) {
+    async fetchAllMessages(
+      channel: TextChannel | NewsChannel
+    ) {
       const messages = [];
   
       let before: string | undefined;
@@ -54,14 +55,15 @@ import {
         messages.push(...batch.values());
   
         before = batch.last()?.id;
+  
+        console.log(
+          `[Redcoats Import] Fetched ${messages.length} messages`
+        );
       }
   
       return messages;
     }
   
-    /**
-     * Parse scoreboard message
-     */
     parseResults(content: string): ParsedPlayerResult[] {
       const lines = content
         .split('\n')
@@ -81,9 +83,7 @@ import {
   
         const parts = trimmed.split(/\s+/);
   
-        if (parts.length < 7) {
-          continue;
-        }
+        if (parts.length < 7) continue;
   
         const rank = Number(parts[0]);
         const gid = parts[1];
@@ -105,9 +105,7 @@ import {
           username = middle.slice(1).join(' ');
         }
   
-        if (!gid || !username) {
-          continue;
-        }
+        if (!gid || !username) continue;
   
         results.push({
           rank,
@@ -180,7 +178,11 @@ import {
       return player.totalPlayerKills / player.totalDeaths;
     }
   
-    async bulkInsert(players: AggregatedPlayer[]) {
+    async rebuildTable(players: AggregatedPlayer[]) {
+      await connection.execute(`
+        TRUNCATE TABLE redcoats_player_stats
+      `);
+  
       if (!players.length) {
         return;
       }
@@ -213,20 +215,14 @@ import {
           total_games
         )
         VALUES ${placeholders}
-        ON DUPLICATE KEY UPDATE
-          latest_username = VALUES(latest_username),
-          latest_clan = VALUES(latest_clan),
-          total_player_kills = VALUES(total_player_kills),
-          total_kills = VALUES(total_kills),
-          average_kd = VALUES(average_kd),
-          best_single_game_kd = VALUES(best_single_game_kd),
-          total_games = VALUES(total_games)
         `,
         values.flat()
       );
     }
   
-    async run(channel: TextChannel) {
+    async run(
+      channel: TextChannel | NewsChannel
+    ) {
       const messages = await this.fetchAllMessages(channel);
   
       const allResults: ParsedPlayerResult[] = [];
@@ -236,12 +232,13 @@ import {
   
         if (parsed.length) {
           allResults.push(...parsed);
+          allResults.push(...parsed);
         }
       }
   
       const players = this.aggregatePlayers(allResults);
   
-      await this.bulkInsert(players);
+      await this.rebuildTable(players);
   
       return {
         messages: messages.length,
@@ -252,14 +249,18 @@ import {
   }
   
   export const data = new SlashCommandBuilder()
-    .setName('redcoatsstats')
+    .setName('redcoats')
     .setDescription('Redcoats commands')
+  
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator
+    )
   
     .addSubcommand((sub) =>
       sub
         .setName('import')
         .setDescription(
-          'Import all scoreboard data from this channel'
+          'Import all Redcoats stats from this channel'
         )
     );
   
@@ -268,14 +269,39 @@ import {
   ) {
     await interaction.deferReply();
   
-    const sub = interaction.options.getSubcommand();
+    try {
+      const sub = interaction.options.getSubcommand();
   
-    if (sub === 'import') {
+      if (sub !== 'import') {
+        return interaction.editReply(
+          'Unknown subcommand.'
+        );
+      }
+  
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.Administrator
+        )
+      ) {
+        return interaction.editReply(
+          '❌ Administrator permission required.'
+        );
+      }
+  
       const channel = interaction.channel;
   
-      if (!channel || !(channel instanceof TextChannel)) {
+      if (!channel) {
         return interaction.editReply(
-          'This command must be used in a text channel.'
+          'Could not determine channel.'
+        );
+      }
+  
+      if (
+        channel.type !== ChannelType.GuildText &&
+        channel.type !== ChannelType.GuildAnnouncement
+      ) {
+        return interaction.editReply(
+          'This command can only be run inside a text or announcement channel.'
         );
       }
   
@@ -285,14 +311,18 @@ import {
   
       return interaction.editReply(
         [
-          '✅ Import complete',
+          '✅ Redcoats import complete',
           '',
           `Messages scanned: ${result.messages}`,
           `Player records parsed: ${result.records}`,
-          `Unique players: ${result.players}`,
+          `Unique players imported: ${result.players}`,
         ].join('\n')
       );
-    }
+    } catch (err) {
+      console.error('Redcoats import failed:', err);
   
-    // Existing stats command here...
+      return interaction.editReply(
+        '❌ Import failed. Check console logs.'
+      );
+    }
   }
