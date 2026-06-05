@@ -180,7 +180,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         
         const embed = new EmbedBuilder()
           .setTitle(
-            `Redcoats Stats for ${s.recent_clan_tag || s.latest_clan || ''} ${
+            `Redcoats Stats for ${s.latest_clan || ''} ${
               s.latest_username
             } (${gid})`
           )
@@ -206,8 +206,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               value: bestKd.toFixed(2),
               inline: false,
             }
-          )
-          .setTimestamp();
+          );
     
         return i.update({
           content: `Stats for **${s.latest_username}**`,

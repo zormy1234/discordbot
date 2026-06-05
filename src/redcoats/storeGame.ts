@@ -1,7 +1,5 @@
 import { enqueuePrivateDb } from '../database/dbQueue.js';
-import {
-    connection as db
-} from '../database/SharedConnect.js';
+import connection from '../database/connect.js';
 
 interface StoreGameInput {
   guildId: string;
@@ -25,7 +23,7 @@ export async function storeGame(input: StoreGameInput) {
       for (const row of input.results) {
         const kd =
           row.playerKills / Math.max(row.deaths, 1);
-        await db.execute(
+        await connection.execute(
           `
             INSERT INTO redcoats_game_results (
               gid,
@@ -53,7 +51,7 @@ export async function storeGame(input: StoreGameInput) {
           ],
         );
 
-        await db.execute(
+        await connection.execute(
           `
             INSERT INTO redcoats_player_names (
               gid,
@@ -69,7 +67,7 @@ export async function storeGame(input: StoreGameInput) {
           ],
         );
 
-        await db.execute(
+        await connection.execute(
           `
             INSERT INTO redcoats_player_stats (
               gid,
@@ -151,7 +149,7 @@ export async function storeGame(input: StoreGameInput) {
           ],
         );
 
-        await db.execute(
+        await connection.execute(
           `
             INSERT INTO redcoats_daily_stats (
               gid,

@@ -131,7 +131,7 @@ export async function execute(interaction) {
                 const avgKd = Number(s.average_kd ?? 0);
                 const bestKd = Number(s.best_single_game_kd ?? 0);
                 const embed = new EmbedBuilder()
-                    .setTitle(`Redcoats Stats for ${s.recent_clan_tag || s.latest_clan || ''} ${s.latest_username} (${gid})`)
+                    .setTitle(`Redcoats Stats for ${s.latest_clan || ''} ${s.latest_username} (${gid})`)
                     .setColor(0x0099ff)
                     .addFields({
                     name: 'Total Player Kills',
@@ -149,8 +149,7 @@ export async function execute(interaction) {
                     name: 'Best Single Game K/D',
                     value: bestKd.toFixed(2),
                     inline: false,
-                })
-                    .setTimestamp();
+                });
                 return i.update({
                     content: `Stats for **${s.latest_username}**`,
                     embeds: [embed],
