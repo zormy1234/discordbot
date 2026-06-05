@@ -16,7 +16,7 @@ class RedcoatsImporter {
         }
         return messages;
     }
-    parseResults(content) {
+    parseResults(content, createdAt) {
         const lines = content
             .split('\n')
             .map((x) => x.replace(/\r/g, ''))
@@ -60,6 +60,7 @@ class RedcoatsImporter {
                 kills,
                 playerKills,
                 deaths,
+                createdAt
             });
         }
         return results;
@@ -191,9 +192,13 @@ class RedcoatsImporter {
         const messages = await this.fetchAllMessages(channel);
         const allResults = [];
         for (const msg of messages) {
-            const parsed = this.parseResults(msg.content);
-            if (parsed.length)
+            const parsed = this.parseResults(msg.content, msg.createdAt);
+            if (parsed.length) {
+                for (const row of parsed) {
+                    row.createdAt = msg.createdAt; // ✅ THIS IS THE FIX
+                }
                 allResults.push(...parsed);
+            }
         }
         await this.insertGameResults(allResults);
         await this.upsertPlayerNames(allResults);

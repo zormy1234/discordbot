@@ -18,6 +18,7 @@ import {
     kills: number;
     playerKills: number;
     deaths: number;
+    createdAt: Date;
   }
   
   class RedcoatsImporter {
@@ -41,7 +42,7 @@ import {
       return messages;
     }
   
-    parseResults(content: string): ParsedPlayerResult[] {
+    parseResults(content: string, createdAt: Date): ParsedPlayerResult[] {
       const lines = content
         .split('\n')
         .map((x) => x.replace(/\r/g, ''))
@@ -90,6 +91,7 @@ import {
           kills,
           playerKills,
           deaths,
+          createdAt
         });
       }
   
@@ -235,28 +237,35 @@ import {
     }
   
     async run(channel: TextChannel | NewsChannel) {
-      const start = Date.now();
-  
-      const messages = await this.fetchAllMessages(channel);
-  
-      const allResults: ParsedPlayerResult[] = [];
-  
-      for (const msg of messages) {
-        const parsed = this.parseResults(msg.content);
-        if (parsed.length) allResults.push(...parsed);
+        const start = Date.now();
+      
+        const messages = await this.fetchAllMessages(channel);
+      
+        const allResults: ParsedPlayerResult[] = [];
+      
+        for (const msg of messages) {
+          const parsed = this.parseResults(msg.content, msg.createdAt);
+      
+          if (parsed.length) {
+            for (const row of parsed) {
+              row.createdAt = msg.createdAt; // ✅ THIS IS THE FIX
+            }
+      
+            allResults.push(...parsed);
+          }
+        }
+      
+        await this.insertGameResults(allResults);
+        await this.upsertPlayerNames(allResults);
+        await this.rebuildPlayerStats();
+        await this.rebuildDailyStats();
+      
+        return {
+          messages: messages.length,
+          records: allResults.length,
+          duration: ((Date.now() - start) / 1000).toFixed(1),
+        };
       }
-  
-      await this.insertGameResults(allResults);
-      await this.upsertPlayerNames(allResults);
-      await this.rebuildPlayerStats();
-      await this.rebuildDailyStats();
-  
-      return {
-        messages: messages.length,
-        records: allResults.length,
-        duration: ((Date.now() - start) / 1000).toFixed(1),
-      };
-    }
   }
   
   export const data = new SlashCommandBuilder()
