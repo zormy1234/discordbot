@@ -6,6 +6,8 @@ import {
   AttachmentBuilder,
   ComponentType,
   EmbedBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js';
 
 import connection from '../database/connect.js';
@@ -253,8 +255,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         return interaction.editReply('Invalid metric');
       }
 
-      const limit = 10;
-      const offset = (page - 1) * limit;
+      const limit = 50;
+      const offset = 0;
 
       let rows: RowDataPacket[] = [];
 
@@ -322,7 +324,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               OFFSET ${offset}
         `
             );
-            console.log(rows)
+            console.log(rows);
             break;
 
           //
@@ -417,27 +419,132 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         return interaction.editReply('No leaderboard data');
       }
 
-      const startRank = offset + 1;
+      const metricNames: Record<string, string> = {
+        total_player_kills: 'Total Player Kills',
+        average_kd: 'Average K/D',
+        highest_score: 'Highest Score',
+        best_single_game_kd: 'Best Single Game K/D',
+      };
 
-      const text = rows
-        .map((row, index) => {
+      const pages: EmbedBuilder[] = [];
+
+      for (let i = 0; i < rows.length; i += 10) {
+        const pageRows = rows.slice(i, i + 10);
+
+        let description = '';
+
+        pageRows.forEach((row, idx) => {
           const value =
             metric === 'average_kd' || metric === 'best_single_game_kd'
               ? Number(row.value).toFixed(2)
               : Number(row.value).toLocaleString();
 
-          return `${startRank + index}. ${row.latest_username} [${
-            row.latest_clan || 'No Clan'
-          }] - ${value} (games=${row.total_games})`;
-        })
-        .join('\n');
+          const clan = row.latest_clan ? `[${row.latest_clan}] ` : '';
 
-      return interaction.editReply(
-        `# ${alltime ? 'All Time' : 'Last 2 Months'} Leaderboard\n\n` +
-          `Metric: ${metric}\n` +
-          `Page ${page}/5\n\n` +
-          text
+          description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value} (${row.total_games} games)\n`;
+        });
+
+        const embed = new EmbedBuilder()
+          .setTitle(`${alltime ? 'All Time' : 'Last 2 Months'} Leaderboard`)
+          .addFields({
+            name: 'Metric',
+            value: metricNames[metric],
+            inline: false,
+          })
+          .setDescription(description)
+          .setColor(0x008494)
+          .setFooter({
+            text: `Page ${Math.floor(i / 10) + 1}/${Math.ceil(
+              rows.length / 10
+            )}`,
+          });
+
+        pages.push(embed);
+      }
+
+      let currentPage = 0;
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('prev')
+          .setLabel('⬅️ Previous')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true),
+
+        new ButtonBuilder()
+          .setCustomId('next')
+          .setLabel('Next ➡️')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(pages.length <= 1)
       );
+
+      const message = await interaction.editReply({
+        embeds: [pages[currentPage]],
+        components: [row],
+      });
+
+      const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 2 * 60 * 1000,
+      });
+      
+      collector.on('collect', async (btn) => {
+        if (!btn.isButton()) return;
+      
+        if (btn.customId === 'prev') {
+          currentPage =
+            currentPage === 0
+              ? pages.length - 1
+              : currentPage - 1;
+        }
+      
+        if (btn.customId === 'next') {
+          currentPage =
+            currentPage === pages.length - 1
+              ? 0
+              : currentPage + 1;
+        }
+      
+        const updatedRow =
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId('prev')
+              .setLabel('⬅️ Previous')
+              .setStyle(ButtonStyle.Primary),
+      
+            new ButtonBuilder()
+              .setCustomId('next')
+              .setLabel('Next ➡️')
+              .setStyle(ButtonStyle.Primary)
+          );
+      
+        await btn.update({
+          embeds: [pages[currentPage]],
+          components: [updatedRow],
+        });
+      });
+
+      collector.on('end', async () => {
+        const disabledRow =
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId('prev')
+              .setLabel('⬅️ Previous')
+              .setStyle(ButtonStyle.Primary)
+              .setDisabled(true),
+      
+            new ButtonBuilder()
+              .setCustomId('next')
+              .setLabel('Next ➡️')
+              .setStyle(ButtonStyle.Primary)
+              .setDisabled(true)
+          );
+      
+        await interaction.editReply({
+          embeds: [pages[0]],
+          components: [disabledRow],
+        });
+      });
     }
 
     // =========================
