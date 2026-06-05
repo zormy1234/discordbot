@@ -10,7 +10,7 @@ import connection from '../database/connect.js';
 import { RowDataPacket } from 'mysql2/promise';
 
 export const data = new SlashCommandBuilder()
-  .setName('tanks_total_stats')
+  .setName('tanks_stats')
   .setDescription('Find a Tanks3D player and view their total stats')
   .addStringOption((option) =>
     option
@@ -97,19 +97,24 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       const gid = selectInteraction.values[0];
 
       // Step 4: Fetch total stats
+      // Step 4: Fetch all stats
       const [statsRows] = await connection.execute<RowDataPacket[]>(
         `
-        SELECT 
-            total_kills, 
-            total_deaths, 
-            total_score, 
-            number_top5, 
-            number_top20, 
-            recent_name, 
-            recent_clan_tag
-        FROM tanks_totals 
-        WHERE gid = ?
-        `,
+  SELECT
+      total_score,
+      total_kills,
+      total_deaths,
+      number_top5,
+      number_top20,
+      highest_score,
+      highest_kills,
+      highest_deaths,
+      highest_kd,
+      recent_name,
+      recent_clan_tag
+  FROM tanks_totals
+  WHERE gid = ?
+  `,
         [gid]
       );
 
@@ -121,52 +126,43 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
 
       const stats = statsRows[0];
-      const kd =
-        stats.total_deaths > 0
-          ? (stats.total_kills / stats.total_deaths).toFixed(2)
+
+      const totalKd =
+        Number(stats.total_deaths) > 0
+          ? (Number(stats.total_kills) / Number(stats.total_deaths)).toFixed(2)
           : '∞';
 
       const embed = new EmbedBuilder()
         .setTitle(
-          `📊 Total Stats for ${stats.recent_clan_tag || ''} ${stats.recent_name || 'Unknown'} (${gid})`
+          `📊 Stats for ${stats.recent_clan_tag ? `[${stats.recent_clan_tag}] ` : ''}${stats.recent_name} (${gid})`
         )
-        .setColor(0x00ff00)
+        .setColor(0x3498db)
         .addFields(
           {
-            name: 'Total Score',
-            value: Number(stats.total_score).toLocaleString(),
-            inline: false,
+            name: '📈 Lifetime Stats',
+            value:
+              `Score: **${stats.total_score.toLocaleString()}**\n` +
+              `Kills: **${stats.total_kills.toLocaleString()}**\n` +
+              `Deaths: **${stats.total_deaths.toLocaleString()}**\n` +
+              `K/D: **${totalKd}**\n` +
+              `Top 5: **${stats.number_top5.toLocaleString()}**\n` +
+              `Top 20: **${stats.number_top20.toLocaleString()}**`,
+              inline: false
           },
           {
-            name: 'Total Kills',
-            value: Number(stats.total_kills).toLocaleString(),
-            inline: false,
-          },
-          {
-            name: 'Total Deaths',
-            value: Number(stats.total_deaths).toLocaleString(),
-            inline: false,
-          },
-          {
-            name: 'Total K/D Ratio',
-            value: kd,
-            inline: false,
-          },
-          {
-            name: 'Top 5 Finishes',
-            value: Number(stats.number_top5).toLocaleString(),
-            inline: false,
-          },
-          {
-            name: 'Top 20 Finishes',
-            value: Number(stats.number_top20).toLocaleString(),
-            inline: false,
+            name: '🏆 Personal Bests',
+            value:
+              `Score: **${stats.highest_score.toLocaleString()}**\n` +
+              `Kills: **${stats.highest_kills.toLocaleString()}**\n` +
+              `Deaths: **${stats.highest_deaths.toLocaleString()}**\n` +
+              `K/D: **${Number(stats.highest_kd).toFixed(2)}**`,
+              inline: false
           }
         )
         .setTimestamp();
 
       await selectInteraction.update({
-        content: `📈 Showing total stats for GID \`${gid}\`:`,
+        content: `Showing tanks3d stats for GID \`${gid}\`:`,
         embeds: [embed],
         components: [],
       });
