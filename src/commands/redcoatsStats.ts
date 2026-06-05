@@ -347,12 +347,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const step = Math.max(1, Math.floor(statsRows.length / MAX_POINTS));
     
         const labels: string[] = [];
-        const data: number[] = [];
-    
+        const cumulativeBotKills: number[] = [];
+        const cumulativePlayerKills: number[] = [];
+        
+        let botSum = 0;
+        let playerSum = 0;
+        
         for (let i2 = 0; i2 < statsRows.length; i2 += step) {
           const r: any = statsRows[i2];
+        
           labels.push(new Date(r.stat_date).toLocaleDateString());
-          data.push(r[metric] ?? 0);
+        
+          botSum += Number(r.total_kills ?? 0);
+          playerSum += Number(r.total_player_kills ?? 0);
+        
+          cumulativeBotKills.push(botSum);
+          cumulativePlayerKills.push(playerSum);
         }
     
         const configuration: ChartConfiguration<'line'> = {
@@ -361,13 +371,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             labels,
             datasets: [
               {
-                label: metric,
-                data,
+                label: 'Cumulative Player Kills',
+                data: cumulativePlayerKills,
                 borderColor: 'rgba(0, 132, 148, 1)',
                 backgroundColor: 'rgba(0, 132, 148, 0.2)',
                 tension: 0.2,
-                borderWidth: 5,
-                pointRadius: 3,
+                borderWidth: 4,
+                pointRadius: 2,
+              },
+              {
+                label: 'Cumulative Bot Kills',
+                data: cumulativeBotKills,
+                borderColor: 'rgba(255, 99, 132, 1)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.2,
+                borderWidth: 4,
+                pointRadius: 2,
               },
             ],
           },
@@ -383,7 +402,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               y: {
                 title: {
                   display: true,
-                  text: metric,
+                  text: 'Cumulative Kills',
                   font: { size: 18, weight: 'bold' },
                 },
                 beginAtZero: true,
