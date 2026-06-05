@@ -83,7 +83,9 @@ import {
   
         const parts = trimmed.split(/\s+/);
   
-        if (parts.length < 7) continue;
+        if (parts.length < 7) {
+          continue;
+        }
   
         const rank = Number(parts[0]);
         const gid = parts[1];
@@ -105,7 +107,9 @@ import {
           username = middle.slice(1).join(' ');
         }
   
-        if (!gid || !username) continue;
+        if (!gid || !username) {
+          continue;
+        }
   
         results.push({
           rank,
@@ -148,11 +152,11 @@ import {
           map.set(r.gid, player);
         }
   
+        // Keep latest seen values
         player.latestUsername = r.username;
         player.latestClan = r.clan;
   
         player.totalGames += 1;
-  
         player.totalKills += r.kills;
         player.totalPlayerKills += r.playerKills;
         player.totalDeaths += r.deaths;
@@ -179,64 +183,113 @@ import {
     }
   
     async rebuildTable(players: AggregatedPlayer[]) {
-      await connection.execute(`
-        TRUNCATE TABLE redcoats_player_stats
-      `);
+      const conn = await connection.getConnection();
   
-      if (!players.length) {
-        return;
+      try {
+        await conn.beginTransaction();
+  
+        await conn.execute(`
+          TRUNCATE TABLE redcoats_player_stats
+        `);
+  
+        if (!players.length) {
+          await conn.commit();
+          return;
+        }
+  
+        const BATCH_SIZE = 1000;
+  
+        for (
+          let i = 0;
+          i < players.length;
+          i += BATCH_SIZE
+        ) {
+          const batch = players.slice(
+            i,
+            i + BATCH_SIZE
+          );
+  
+          const values = batch.map((p) => [
+            p.gid,
+            p.latestUsername,
+            p.latestClan,
+            p.totalPlayerKills,
+            p.totalKills,
+            this.averageKd(p),
+            p.bestSingleGameKd,
+            p.totalGames,
+          ]);
+  
+          const placeholders = values
+            .map(() => '(?,?,?,?,?,?,?,?)')
+            .join(',');
+  
+          await conn.execute(
+            `
+            INSERT INTO redcoats_player_stats (
+              gid,
+              latest_username,
+              latest_clan,
+              total_player_kills,
+              total_kills,
+              average_kd,
+              best_single_game_kd,
+              total_games
+            )
+            VALUES ${placeholders}
+            `,
+            values.flat()
+          );
+  
+          console.log(
+            `[Redcoats Import] Inserted ${Math.min(
+              i + BATCH_SIZE,
+              players.length
+            )}/${players.length} players`
+          );
+        }
+  
+        await conn.commit();
+  
+        console.log(
+          `[Redcoats Import] Successfully imported ${players.length} players`
+        );
+      } catch (err) {
+        await conn.rollback();
+  
+        console.error(
+          '[Redcoats Import] Transaction rolled back',
+          err
+        );
+  
+        throw err;
+      } finally {
+        conn.release();
       }
-  
-      const values = players.map((p) => [
-        p.gid,
-        p.latestUsername,
-        p.latestClan,
-        p.totalPlayerKills,
-        p.totalKills,
-        this.averageKd(p),
-        p.bestSingleGameKd,
-        p.totalGames,
-      ]);
-  
-      const placeholders = values
-        .map(() => '(?,?,?,?,?,?,?,?)')
-        .join(',');
-  
-      await connection.execute(
-        `
-        INSERT INTO redcoats_player_stats (
-          gid,
-          latest_username,
-          latest_clan,
-          total_player_kills,
-          total_kills,
-          average_kd,
-          best_single_game_kd,
-          total_games
-        )
-        VALUES ${placeholders}
-        `,
-        values.flat()
-      );
     }
   
     async run(
       channel: TextChannel | NewsChannel
     ) {
-      const messages = await this.fetchAllMessages(channel);
+      const start = Date.now();
+  
+      const messages =
+        await this.fetchAllMessages(channel);
   
       const allResults: ParsedPlayerResult[] = [];
   
       for (const msg of messages) {
-        const parsed = this.parseResults(msg.content);
+        const parsed = this.parseResults(
+          msg.content
+        );
   
         if (parsed.length) {
-          allResults.push(...parsed);
           allResults.push(...parsed);
         }
       }
   
-      const players = this.aggregatePlayers(allResults);
+      const players =
+        this.aggregatePlayers(allResults);
   
       await this.rebuildTable(players);
   
@@ -244,6 +297,10 @@ import {
         messages: messages.length,
         records: allResults.length,
         players: players.length,
+        duration: (
+          (Date.now() - start) /
+          1000
+        ).toFixed(1),
       };
     }
   }
@@ -251,11 +308,9 @@ import {
   export const data = new SlashCommandBuilder()
     .setName('redcoats')
     .setDescription('Redcoats commands')
-  
     .setDefaultMemberPermissions(
       PermissionFlagsBits.Administrator
     )
-  
     .addSubcommand((sub) =>
       sub
         .setName('import')
@@ -270,7 +325,8 @@ import {
     await interaction.deferReply();
   
     try {
-      const sub = interaction.options.getSubcommand();
+      const sub =
+        interaction.options.getSubcommand();
   
       if (sub !== 'import') {
         return interaction.editReply(
@@ -297,17 +353,22 @@ import {
       }
   
       if (
-        channel.type !== ChannelType.GuildText &&
-        channel.type !== ChannelType.GuildAnnouncement
+        channel.type !==
+          ChannelType.GuildText &&
+        channel.type !==
+          ChannelType.GuildAnnouncement
       ) {
         return interaction.editReply(
           'This command can only be run inside a text or announcement channel.'
         );
       }
   
-      const importer = new RedcoatsImporter();
+      const importer =
+        new RedcoatsImporter();
   
-      const result = await importer.run(channel);
+      const result = await importer.run(
+        channel as TextChannel | NewsChannel
+      );
   
       return interaction.editReply(
         [
@@ -316,10 +377,14 @@ import {
           `Messages scanned: ${result.messages}`,
           `Player records parsed: ${result.records}`,
           `Unique players imported: ${result.players}`,
+          `Duration: ${result.duration}s`,
         ].join('\n')
       );
     } catch (err) {
-      console.error('Redcoats import failed:', err);
+      console.error(
+        'Redcoats import failed:',
+        err
+      );
   
       return interaction.editReply(
         '❌ Import failed. Check console logs.'
