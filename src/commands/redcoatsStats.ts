@@ -324,7 +324,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               OFFSET ${offset}
         `
             );
-            console.log(rows);
             break;
 
           //

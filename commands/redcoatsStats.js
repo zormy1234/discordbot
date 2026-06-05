@@ -220,7 +220,6 @@ export async function execute(interaction) {
               LIMIT ${limit}
               OFFSET ${offset}
         `);
-                        console.log(rows);
                         break;
                     //
                     // Average KD (last 2 months)
