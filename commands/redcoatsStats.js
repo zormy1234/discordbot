@@ -226,32 +226,30 @@ export async function execute(interaction) {
                     //
                     case 'average_kd':
                         [rows] = await connection.execute(`
-        SELECT
-          ps.gid,
-          ps.latest_username,
-          ds.latest_clan,
+                SELECT
+                    ps.gid,
+                    ps.latest_username,
+                    ps.latest_clan,
 
-          SUM(ds.total_kills) /
-          NULLIF(SUM(gr.deaths), 0) AS value,
+                    AVG(ds.kd) AS value,
 
-          SUM(ds.games_played) AS total_games
+                    SUM(ds.games_played) AS total_games
 
-        FROM redcoats_daily_stats ds
+                  FROM redcoats_daily_stats ds
 
-        JOIN redcoats_player_stats ps
-          ON ps.gid = ds.gid
+                  JOIN redcoats_player_stats ps
+                    ON ps.gid = ds.gid
 
-        JOIN redcoats_game_results gr
-          ON gr.gid = ds.gid
-         AND DATE(gr.created_at) = ds.stat_date
+                  WHERE ds.stat_date >= CURDATE() - INTERVAL 2 MONTH
 
-        WHERE ds.stat_date >= CURDATE() - INTERVAL 2 MONTH
+                  GROUP BY ds.gid
 
-        GROUP BY ds.gid
-        HAVING total_games >= 5
-        ORDER BY value DESC
-        LIMIT ${limit}
-        OFFSET ${offset}
+                  HAVING total_games >= 5
+
+                  ORDER BY value DESC
+
+                  LIMIT ${limit}
+                  OFFSET ${offset};
         `);
                         break;
                     //
@@ -281,21 +279,27 @@ export async function execute(interaction) {
                     //
                     case 'best_single_game_kd':
                         [rows] = await connection.execute(`
-        SELECT
-          ps.gid,
-          ps.latest_username,
-          ps.latest_clan,
-          MAX(gr.kd) AS value,
-          COUNT(*) AS total_games
-        FROM redcoats_game_results gr
-        JOIN redcoats_player_stats ps
-          ON ps.gid = gr.gid
-        WHERE gr.created_at >= NOW() - INTERVAL 2 MONTH
-        GROUP BY gr.gid
-        HAVING total_games >= 5
-        ORDER BY value DESC
-        LIMIT ${limit}
-        OFFSET ${offset}
+                SELECT
+                    ps.gid,
+                    ps.latest_username,
+                    ps.latest_clan,
+                    player_best.best_kd AS value,
+                    player_best.total_games
+                FROM (
+                    SELECT
+                        gr.gid,
+                        MAX(gr.kd) AS best_kd,
+                        COUNT(*) AS total_games
+                    FROM redcoats_game_results gr
+                    WHERE gr.created_at >= NOW() - INTERVAL 2 MONTH
+                    GROUP BY gr.gid
+                    HAVING total_games >= 5
+                ) player_best
+                JOIN redcoats_player_stats ps
+                    ON ps.gid = player_best.gid
+                ORDER BY player_best.best_kd DESC
+                LIMIT ${limit}
+                OFFSET ${offset};
         `);
                         break;
                 }
@@ -318,7 +322,7 @@ export async function execute(interaction) {
                         ? Number(row.value).toFixed(2)
                         : Number(row.value).toLocaleString();
                     const clan = row.latest_clan ? `[${row.latest_clan}] ` : '';
-                    description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value} (${row.total_games} games)\n`;
+                    description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value}`;
                 });
                 const embed = new EmbedBuilder()
                     .setTitle(`${alltime ? 'All Time' : 'Last 2 Months'} ${metric} Leaderboard`)
