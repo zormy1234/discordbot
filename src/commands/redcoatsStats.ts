@@ -34,25 +34,28 @@ export const data = new SlashCommandBuilder()
       )
   )
 
-  // .addSubcommand((sub) =>
-  //   sub
-  //     .setName('leaderboard')
-  //     .setDescription('Leaderboard')
-  //     .addStringOption((o) =>
-  //       o
-  //         .setName('metric')
-  //         .setDescription('Metric')
-  //         .addChoices(
-  //           { name: 'Total Player Kills', value: 'total_player_kills' },
-  //           { name: 'Highest Score', value: 'highest_score' },
-  //           { name: 'Average KD', value: 'average_kd' },
-  //           { name: 'Best Single Game KD', value: 'best_single_game_kd' }
-  //         )
-  //     )
-  //     .addBooleanOption((o) =>
-  //       o.setName('alltime').setDescription('Use all time stats')
-  //     )
-  // )
+  .addSubcommand((sub) =>
+    sub
+      .setName('leaderboard')
+      .setDescription('Leaderboard')
+      .addStringOption((o) =>
+        o
+          .setName('metric')
+          .setDescription('Metric')
+          .addChoices(
+            { name: 'Total Player Kills', value: 'total_player_kills' },
+            { name: 'Highest Score', value: 'highest_score' },
+            { name: 'Average KD', value: 'average_kd' },
+            { name: 'Best Single Game KD', value: 'best_single_game_kd' }
+          )
+      )
+      .addBooleanOption((o) =>
+        o
+          .setName('alltime')
+          .setDescription('Use all time stats')
+          .setRequired(false)
+      )
+  )
 
   .addSubcommand((sub) =>
     sub
@@ -236,34 +239,205 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     if (sub === 'leaderboard') {
       const metric =
         interaction.options.getString('metric') || 'total_player_kills';
-
+      const page = Math.max(interaction.options.getInteger('page') || 1, 1);
       const alltime = interaction.options.getBoolean('alltime') ?? false;
 
-      const [rows] = await connection.execute<RowDataPacket[]>(
+      const allowedMetrics = [
+        'total_player_kills',
+        'highest_score',
+        'average_kd',
+        'best_single_game_kd',
+      ];
+
+      if (!allowedMetrics.includes(metric)) {
+        return interaction.editReply('Invalid metric');
+      }
+
+      const limit = 10;
+      const offset = (page - 1) * limit;
+
+      let rows: RowDataPacket[] = [];
+
+      if (alltime) {
+        let orderColumn: string;
+
+        switch (metric) {
+          case 'total_player_kills':
+            orderColumn = 'total_player_kills';
+            break;
+
+          case 'average_kd':
+            orderColumn = 'average_kd';
+            break;
+
+          case 'highest_score':
+            orderColumn = 'highest_score';
+            break;
+
+          case 'best_single_game_kd':
+            orderColumn = 'best_single_game_kd';
+            break;
+
+          default:
+            throw new Error('Invalid metric');
+        }
+
+        [rows] = await connection.execute<RowDataPacket[]>(
+          `
+    SELECT
+      gid,
+      latest_username,
+      latest_clan,
+      total_games,
+      ${orderColumn} AS value
+    FROM redcoats_player_stats
+    WHERE total_games >= 5
+    ORDER BY value DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+    `
+        );
+      } else {
+        switch (metric) {
+          //
+          // Total Player Kills (last 2 months)
+          //
+          case 'total_player_kills':
+            [rows] = await connection.execute<RowDataPacket[]>(
+              `
+              SELECT
+                ps.gid,
+                ps.latest_username,
+                ds.latest_clan,
+                SUM(ds.total_player_kills) AS value,
+                SUM(ds.games_played) AS total_games
+              FROM redcoats_daily_stats ds
+              JOIN redcoats_player_stats ps
+                ON ps.gid = ds.gid
+              WHERE ds.stat_date >= CURDATE() - INTERVAL 2 MONTH
+              GROUP BY ds.gid
+              HAVING total_games >= 5
+              ORDER BY value DESC
+              LIMIT ${limit}
+              OFFSET ${offset}
         `
-        SELECT latest_username, latest_clan, total_games, ${metric}
-        FROM redcoats_player_stats
-        WHERE total_games >= 5
-        ${alltime ? '' : 'AND last_seen >= NOW() - INTERVAL 2 MONTH'}
-        ORDER BY ${metric} DESC
-        LIMIT 50
+            );
+            console.log(rows)
+            break;
+
+          //
+          // Average KD (last 2 months)
+          //
+          case 'average_kd':
+            [rows] = await connection.execute<RowDataPacket[]>(
+              `
+        SELECT
+          ps.gid,
+          ps.latest_username,
+          ds.latest_clan,
+
+          SUM(ds.total_kills) /
+          NULLIF(SUM(gr.deaths), 0) AS value,
+
+          SUM(ds.games_played) AS total_games
+
+        FROM redcoats_daily_stats ds
+
+        JOIN redcoats_player_stats ps
+          ON ps.gid = ds.gid
+
+        JOIN redcoats_game_results gr
+          ON gr.gid = ds.gid
+         AND DATE(gr.created_at) = ds.stat_date
+
+        WHERE ds.stat_date >= CURDATE() - INTERVAL 2 MONTH
+
+        GROUP BY ds.gid
+        HAVING total_games >= 5
+        ORDER BY value DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
         `
-      );
+            );
+            break;
+
+          //
+          // Highest Score (last 2 months)
+          //
+          case 'highest_score':
+            [rows] = await connection.execute<RowDataPacket[]>(
+              `
+        SELECT
+          ps.gid,
+          ps.latest_username,
+          ps.latest_clan,
+          MAX(gr.score) AS value,
+          COUNT(*) AS total_games
+        FROM redcoats_game_results gr
+        JOIN redcoats_player_stats ps
+          ON ps.gid = gr.gid
+        WHERE gr.created_at >= NOW() - INTERVAL 2 MONTH
+        GROUP BY gr.gid
+        HAVING total_games >= 5
+        ORDER BY value DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+        `
+            );
+            break;
+
+          //
+          // Best Single Game KD (last 2 months)
+          //
+          case 'best_single_game_kd':
+            [rows] = await connection.execute<RowDataPacket[]>(
+              `
+        SELECT
+          ps.gid,
+          ps.latest_username,
+          ps.latest_clan,
+          MAX(gr.kd) AS value,
+          COUNT(*) AS total_games
+        FROM redcoats_game_results gr
+        JOIN redcoats_player_stats ps
+          ON ps.gid = gr.gid
+        WHERE gr.created_at >= NOW() - INTERVAL 2 MONTH
+        GROUP BY gr.gid
+        HAVING total_games >= 5
+        ORDER BY value DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+        `
+            );
+            break;
+        }
+      }
 
       if (!rows.length) {
         return interaction.editReply('No leaderboard data');
       }
 
+      const startRank = offset + 1;
+
       const text = rows
-        .map(
-          (x: any, i: number) =>
-            `${i + 1}. ${x.latest_username} [${
-              x.latest_clan || 'No Clan'
-            }] - ${Number(x[metric]).toFixed(2)} (games=${x.total_games})`
-        )
+        .map((row, index) => {
+          const value =
+            metric === 'average_kd' || metric === 'best_single_game_kd'
+              ? Number(row.value).toFixed(2)
+              : Number(row.value).toLocaleString();
+
+          return `${startRank + index}. ${row.latest_username} [${
+            row.latest_clan || 'No Clan'
+          }] - ${value} (games=${row.total_games})`;
+        })
         .join('\n');
 
-      return interaction.editReply(`# Leaderboard\n\n${text}`);
+      return interaction.editReply(
+        `# ${alltime ? 'All Time' : 'Last 2 Months'} Leaderboard\n\n` +
+          `Metric: ${metric}\n` +
+          `Page ${page}/5\n\n` +
+          text
+      );
     }
 
     // =========================
@@ -370,13 +544,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         if (n <= MAX_POINTS) {
           for (const r of statsRows) {
             labels.push(new Date(r.stat_date).toLocaleDateString());
-          
+
             if (mode === 'kd') {
               kdData.push(Number(r.average_kd ?? 0));
             } else {
               botSum += Number(r.total_kills ?? 0);
               playerSum += Number(r.total_player_kills ?? 0);
-          
+
               cumulativeBotKills.push(botSum);
               cumulativePlayerKills.push(playerSum);
             }
@@ -386,22 +560,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
           for (let i = 0; i < n; i += groupSize) {
             const group = statsRows.slice(i, i + groupSize);
-          
+
             const last = group[group.length - 1];
             labels.push(new Date(last.stat_date).toLocaleDateString());
-          
+
             if (mode === 'kd') {
               const avgKd =
                 group.reduce((sum, r) => sum + Number(r.average_kd ?? 0), 0) /
                 group.length;
-          
+
               kdData.push(avgKd);
             } else {
               for (const r of group) {
                 botSum += Number(r.total_kills ?? 0);
                 playerSum += Number(r.total_player_kills ?? 0);
               }
-          
+
               cumulativeBotKills.push(botSum);
               cumulativePlayerKills.push(playerSum);
             }
