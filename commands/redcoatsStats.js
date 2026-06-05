@@ -43,7 +43,7 @@ export const data = new SlashCommandBuilder()
     .setName('metric')
     .setDescription('Metric')
     .setRequired(true)
-    .addChoices({ name: 'Player Kills', value: 'total_player_kills' }, { name: 'Bot Kills', value: 'total_kills' }, { name: 'KD Ratio', value: 'average_kd' })));
+    .addChoices({ name: 'Kills', value: 'total_kills' }, { name: 'KD Ratio', value: 'average_kd' })));
 export async function execute(interaction) {
     await interaction.deferReply();
     const sub = interaction.options.getSubcommand();
@@ -181,6 +181,9 @@ export async function execute(interaction) {
         if (sub === 'graph') {
             const name = interaction.options.getString('name', true);
             const metric = interaction.options.getString('metric', true);
+            const isKD = metric === 'average_kd';
+            const isKills = metric === 'total_kills';
+            const mode = isKD ? 'kd' : 'kills';
             const [rows] = await connection.execute(`
         SELECT
           gid,
@@ -240,6 +243,7 @@ export async function execute(interaction) {
                 const MAX_POINTS = 50;
                 const step = Math.max(1, Math.floor(statsRows.length / MAX_POINTS));
                 const labels = [];
+                const kdData = [];
                 const cumulativeBotKills = [];
                 const cumulativePlayerKills = [];
                 let botSum = 0;
@@ -247,6 +251,12 @@ export async function execute(interaction) {
                 for (let i2 = 0; i2 < statsRows.length; i2 += step) {
                     const r = statsRows[i2];
                     labels.push(new Date(r.stat_date).toLocaleDateString());
+                    // KD mode
+                    if (mode === 'kd') {
+                        kdData.push(Number(r.average_kd ?? 0));
+                        continue;
+                    }
+                    // Kills mode (cumulative comparison)
                     botSum += Number(r.total_kills ?? 0);
                     playerSum += Number(r.total_player_kills ?? 0);
                     cumulativeBotKills.push(botSum);
@@ -256,26 +266,38 @@ export async function execute(interaction) {
                     type: 'line',
                     data: {
                         labels,
-                        datasets: [
-                            {
-                                label: 'Cumulative Player Kills',
-                                data: cumulativePlayerKills,
-                                borderColor: 'rgba(0, 132, 148, 1)',
-                                backgroundColor: 'rgba(0, 132, 148, 0.2)',
-                                tension: 0.2,
-                                borderWidth: 4,
-                                pointRadius: 2,
-                            },
-                            {
-                                label: 'Cumulative Bot Kills',
-                                data: cumulativeBotKills,
-                                borderColor: 'rgba(255, 99, 132, 1)',
-                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                tension: 0.2,
-                                borderWidth: 4,
-                                pointRadius: 2,
-                            },
-                        ],
+                        datasets: mode === 'kd'
+                            ? [
+                                {
+                                    label: 'K/D Ratio',
+                                    data: kdData,
+                                    borderColor: 'rgba(0, 132, 148, 1)',
+                                    backgroundColor: 'rgba(0, 132, 148, 0.2)',
+                                    tension: 0.2,
+                                    borderWidth: 4,
+                                    pointRadius: 2,
+                                },
+                            ]
+                            : [
+                                {
+                                    label: 'Cumulative Player Kills',
+                                    data: cumulativePlayerKills,
+                                    borderColor: 'rgba(0, 132, 148, 1)',
+                                    backgroundColor: 'rgba(0, 132, 148, 0.2)',
+                                    tension: 0.2,
+                                    borderWidth: 4,
+                                    pointRadius: 2,
+                                },
+                                {
+                                    label: 'Cumulative Bot Kills',
+                                    data: cumulativeBotKills,
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                    tension: 0.2,
+                                    borderWidth: 4,
+                                    pointRadius: 2,
+                                },
+                            ],
                     },
                     options: {
                         scales: {
@@ -289,7 +311,7 @@ export async function execute(interaction) {
                             y: {
                                 title: {
                                     display: true,
-                                    text: 'Cumulative Kills',
+                                    text: mode === 'kd' ? 'K/D Ratio' : 'Cumulative Kills',
                                     font: { size: 18, weight: 'bold' },
                                 },
                                 beginAtZero: true,

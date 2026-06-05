@@ -70,8 +70,7 @@ export const data = new SlashCommandBuilder()
           .setDescription('Metric')
           .setRequired(true)
           .addChoices(
-            { name: 'Player Kills', value: 'total_player_kills' },
-            { name: 'Bot Kills', value: 'total_kills' },
+            { name: 'Kills', value: 'total_kills' },
             { name: 'KD Ratio', value: 'average_kd' }
           )
       )
@@ -268,7 +267,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     if (sub === 'graph') {
       const name = interaction.options.getString('name', true);
       const metric = interaction.options.getString('metric', true);
-    
+
+      const isKD = metric === 'average_kd';
+      const isKills = metric === 'total_kills';
+      
+      const mode: 'kd' | 'kills' = isKD ? 'kd' : 'kills';    
       const [rows] = await connection.execute<RowDataPacket[]>(
         `
         SELECT
@@ -347,6 +350,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const step = Math.max(1, Math.floor(statsRows.length / MAX_POINTS));
     
         const labels: string[] = [];
+
+        const kdData: number[] = [];
         const cumulativeBotKills: number[] = [];
         const cumulativePlayerKills: number[] = [];
         
@@ -358,6 +363,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         
           labels.push(new Date(r.stat_date).toLocaleDateString());
         
+          // KD mode
+          if (mode === 'kd') {
+            kdData.push(Number(r.average_kd ?? 0));
+            continue;
+          }
+        
+          // Kills mode (cumulative comparison)
           botSum += Number(r.total_kills ?? 0);
           playerSum += Number(r.total_player_kills ?? 0);
         
@@ -369,26 +381,39 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           type: 'line',
           data: {
             labels,
-            datasets: [
-              {
-                label: 'Cumulative Player Kills',
-                data: cumulativePlayerKills,
-                borderColor: 'rgba(0, 132, 148, 1)',
-                backgroundColor: 'rgba(0, 132, 148, 0.2)',
-                tension: 0.2,
-                borderWidth: 4,
-                pointRadius: 2,
-              },
-              {
-                label: 'Cumulative Bot Kills',
-                data: cumulativeBotKills,
-                borderColor: 'rgba(255, 99, 132, 1)',
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                tension: 0.2,
-                borderWidth: 4,
-                pointRadius: 2,
-              },
-            ],
+            datasets:
+              mode === 'kd'
+                ? [
+                    {
+                      label: 'K/D Ratio',
+                      data: kdData,
+                      borderColor: 'rgba(0, 132, 148, 1)',
+                      backgroundColor: 'rgba(0, 132, 148, 0.2)',
+                      tension: 0.2,
+                      borderWidth: 4,
+                      pointRadius: 2,
+                    },
+                  ]
+                : [
+                    {
+                      label: 'Cumulative Player Kills',
+                      data: cumulativePlayerKills,
+                      borderColor: 'rgba(0, 132, 148, 1)',
+                      backgroundColor: 'rgba(0, 132, 148, 0.2)',
+                      tension: 0.2,
+                      borderWidth: 4,
+                      pointRadius: 2,
+                    },
+                    {
+                      label: 'Cumulative Bot Kills',
+                      data: cumulativeBotKills,
+                      borderColor: 'rgba(255, 99, 132, 1)',
+                      backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                      tension: 0.2,
+                      borderWidth: 4,
+                      pointRadius: 2,
+                    },
+                  ],
           },
           options: {
             scales: {
@@ -402,7 +427,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               y: {
                 title: {
                   display: true,
-                  text: 'Cumulative Kills',
+                  text: mode === 'kd' ? 'K/D Ratio' : 'Cumulative Kills',
                   font: { size: 18, weight: 'bold' },
                 },
                 beginAtZero: true,
@@ -410,7 +435,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             },
           },
         };
-    
+        
         const image = await chartCanvas.renderToBuffer(configuration);
     
         return i.update({
