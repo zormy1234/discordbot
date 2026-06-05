@@ -364,38 +364,46 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const kdData: number[] = [];
         const cumulativeBotKills: number[] = [];
         const cumulativePlayerKills: number[] = [];
+        let botSum = 0;
+        let playerSum = 0;
 
         if (n <= MAX_POINTS) {
-          // no grouping needed
-          for (const r of statsRows as any[]) {
+          for (const r of statsRows) {
             labels.push(new Date(r.stat_date).toLocaleDateString());
-
+          
             if (mode === 'kd') {
               kdData.push(Number(r.average_kd ?? 0));
             } else {
-              cumulativeBotKills.push(Number(r.total_kills ?? 0));
-              cumulativePlayerKills.push(Number(r.total_player_kills ?? 0));
+              botSum += Number(r.total_kills ?? 0);
+              playerSum += Number(r.total_player_kills ?? 0);
+          
+              cumulativeBotKills.push(botSum);
+              cumulativePlayerKills.push(playerSum);
             }
           }
         } else {
           const groupSize = Math.ceil(n / MAX_POINTS);
 
           for (let i = 0; i < n; i += groupSize) {
-            const group = statsRows.slice(i, i + groupSize) as any[];
-
+            const group = statsRows.slice(i, i + groupSize);
+          
             const last = group[group.length - 1];
-
             labels.push(new Date(last.stat_date).toLocaleDateString());
-
+          
             if (mode === 'kd') {
               const avgKd =
                 group.reduce((sum, r) => sum + Number(r.average_kd ?? 0), 0) /
                 group.length;
-
+          
               kdData.push(avgKd);
             } else {
-              cumulativeBotKills.push(Number(last.total_kills ?? 0));
-              cumulativePlayerKills.push(Number(last.total_player_kills ?? 0));
+              for (const r of group) {
+                botSum += Number(r.total_kills ?? 0);
+                playerSum += Number(r.total_player_kills ?? 0);
+              }
+          
+              cumulativeBotKills.push(botSum);
+              cumulativePlayerKills.push(playerSum);
             }
           }
         }

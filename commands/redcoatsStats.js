@@ -249,16 +249,19 @@ export async function execute(interaction) {
                 const kdData = [];
                 const cumulativeBotKills = [];
                 const cumulativePlayerKills = [];
+                let botSum = 0;
+                let playerSum = 0;
                 if (n <= MAX_POINTS) {
-                    // no grouping needed
                     for (const r of statsRows) {
                         labels.push(new Date(r.stat_date).toLocaleDateString());
                         if (mode === 'kd') {
                             kdData.push(Number(r.average_kd ?? 0));
                         }
                         else {
-                            cumulativeBotKills.push(Number(r.total_kills ?? 0));
-                            cumulativePlayerKills.push(Number(r.total_player_kills ?? 0));
+                            botSum += Number(r.total_kills ?? 0);
+                            playerSum += Number(r.total_player_kills ?? 0);
+                            cumulativeBotKills.push(botSum);
+                            cumulativePlayerKills.push(playerSum);
                         }
                     }
                 }
@@ -274,8 +277,12 @@ export async function execute(interaction) {
                             kdData.push(avgKd);
                         }
                         else {
-                            cumulativeBotKills.push(Number(last.total_kills ?? 0));
-                            cumulativePlayerKills.push(Number(last.total_player_kills ?? 0));
+                            for (const r of group) {
+                                botSum += Number(r.total_kills ?? 0);
+                                playerSum += Number(r.total_player_kills ?? 0);
+                            }
+                            cumulativeBotKills.push(botSum);
+                            cumulativePlayerKills.push(playerSum);
                         }
                     }
                 }
