@@ -12,46 +12,38 @@ export const data = new SlashCommandBuilder()
     .setName('stats')
     .setDescription('Get player stats')
     .addStringOption((o) => o.setName('name').setDescription('Player name').setRequired(true))
-    .addStringOption((o) => o.setName('clan').setDescription('Clan').setRequired(false))
-// )
-// .addSubcommand((sub) =>
-//   sub
-//     .setName('leaderboard')
-//     .setDescription('Leaderboard')
-//     .addStringOption((o) =>
-//       o
-//         .setName('metric')
-//         .setDescription('Metric')
-//         .addChoices(
-//           { name: 'Total Player Kills', value: 'total_player_kills' },
-//           { name: 'Highest Score', value: 'highest_score' },
-//           { name: 'Average KD', value: 'average_kd' },
-//           { name: 'Best Single Game KD', value: 'best_single_game_kd' }
-//         )
-//     )
-//     .addBooleanOption((o) =>
-//       o.setName('alltime').setDescription('Use all time stats')
-//     )
-// )
-// .addSubcommand((sub) =>
-//   sub
-//     .setName('graph')
-//     .setDescription('Player graph')
-//     .addStringOption((o) =>
-//       o.setName('gid').setDescription('gid').setRequired(true)
-//     )
-//     .addStringOption((o) =>
-//       o
-//         .setName('metric')
-//         .setDescription('Metric')
-//         .setRequired(true)
-//         .addChoices(
-//           { name: 'Player Kills', value: 'total_player_kills' },
-//           { name: 'Bot Kills', value: 'total_kills' },
-//           { name: 'KD Ratio', value: 'average_kd' }
-// )
-// )
-);
+    .addStringOption((o) => o.setName('clan').setDescription('Clan').setRequired(false)))
+    // .addSubcommand((sub) =>
+    //   sub
+    //     .setName('leaderboard')
+    //     .setDescription('Leaderboard')
+    //     .addStringOption((o) =>
+    //       o
+    //         .setName('metric')
+    //         .setDescription('Metric')
+    //         .addChoices(
+    //           { name: 'Total Player Kills', value: 'total_player_kills' },
+    //           { name: 'Highest Score', value: 'highest_score' },
+    //           { name: 'Average KD', value: 'average_kd' },
+    //           { name: 'Best Single Game KD', value: 'best_single_game_kd' }
+    //         )
+    //     )
+    //     .addBooleanOption((o) =>
+    //       o.setName('alltime').setDescription('Use all time stats')
+    //     )
+    // )
+    .addSubcommand((sub) => sub
+    .setName('graph')
+    .setDescription('Player graph')
+    .addStringOption((o) => o
+    .setName('name')
+    .setDescription('Player name')
+    .setRequired(true))
+    .addStringOption((o) => o
+    .setName('metric')
+    .setDescription('Metric')
+    .setRequired(true)
+    .addChoices({ name: 'Player Kills', value: 'total_player_kills' }, { name: 'Bot Kills', value: 'total_kills' }, { name: 'KD Ratio', value: 'average_kd' })));
 export async function execute(interaction) {
     await interaction.deferReply();
     const sub = interaction.options.getSubcommand();
@@ -187,32 +179,121 @@ export async function execute(interaction) {
         // GRAPH
         // =========================
         if (sub === 'graph') {
-            const gid = interaction.options.getString('gid', true);
+            const name = interaction.options.getString('name', true);
             const metric = interaction.options.getString('metric', true);
             const [rows] = await connection.execute(`
-        SELECT *
-        FROM redcoats_daily_stats
-        WHERE gid = ?
-        ORDER BY stat_date ASC
-        `, [gid]);
+        SELECT
+          gid,
+          latest_username,
+          latest_clan,
+          total_player_kills,
+          total_kills,
+          average_kd,
+          total_games
+        FROM redcoats_player_stats
+        WHERE latest_username LIKE ?
+        ORDER BY total_player_kills DESC
+        LIMIT 5
+        `, [`%${name}%`]);
             if (!rows.length) {
-                return interaction.editReply('No graph data found');
+                return interaction.editReply(`❌ No Redcoats players found for **${name}**`);
             }
-            const image = await chartCanvas.renderToBuffer({
-                type: 'line',
-                data: {
-                    labels: rows.map((r) => r.stat_date),
-                    datasets: [
-                        {
-                            label: metric,
-                            data: rows.map((r) => r[metric]),
+            const options = rows.map((r) => ({
+                label: `${r.latest_username} ${r.latest_clan ? `[${r.latest_clan}]` : ''}`,
+                description: `Kills: ${r.total_player_kills} | Games: ${r.total_games}`,
+                value: r.gid.toString(),
+            }));
+            const menu = new StringSelectMenuBuilder()
+                .setCustomId('redcoats_graph_select')
+                .setPlaceholder('Select a player for graph')
+                .addOptions(options);
+            const row = new ActionRowBuilder().addComponents(menu);
+            await interaction.editReply({
+                content: `Found ${rows.length} player(s) for **${name}** — select one to graph`,
+                components: [row],
+            });
+            const msg = await interaction.fetchReply();
+            const collector = msg.createMessageComponentCollector({
+                componentType: ComponentType.StringSelect,
+                time: 60_000,
+            });
+            collector.on('collect', async (i) => {
+                if (i.user.id !== interaction.user.id) {
+                    return i.reply({
+                        content: 'Not your selection.',
+                        ephemeral: true,
+                    });
+                }
+                const gid = i.values[0];
+                const [statsRows] = await connection.execute(`
+          SELECT *
+          FROM redcoats_daily_stats
+          WHERE gid = ?
+          ORDER BY stat_date ASC
+          `, [gid]);
+                if (!statsRows.length) {
+                    return i.update({
+                        content: '❌ No graph data found for this player.',
+                        components: [],
+                    });
+                }
+                const MAX_POINTS = 50;
+                const step = Math.max(1, Math.floor(statsRows.length / MAX_POINTS));
+                const labels = [];
+                const data = [];
+                for (let i2 = 0; i2 < statsRows.length; i2 += step) {
+                    const r = statsRows[i2];
+                    labels.push(new Date(r.stat_date).toLocaleDateString());
+                    data.push(r[metric] ?? 0);
+                }
+                const configuration = {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: metric,
+                                data,
+                                borderColor: 'rgba(0, 132, 148, 1)',
+                                backgroundColor: 'rgba(0, 132, 148, 0.2)',
+                                tension: 0.2,
+                                borderWidth: 5,
+                                pointRadius: 3,
+                            },
+                        ],
+                    },
+                    options: {
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date',
+                                    font: { size: 18, weight: 'bold' },
+                                },
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: metric,
+                                    font: { size: 18, weight: 'bold' },
+                                },
+                                beginAtZero: true,
+                            },
                         },
-                    ],
-                },
+                    },
+                };
+                const image = await chartCanvas.renderToBuffer(configuration);
+                return i.update({
+                    content: `📈 Graph for **${rows.find((r) => r.gid == gid)?.latest_username || 'Player'}**`,
+                    embeds: [],
+                    components: [],
+                    files: [new AttachmentBuilder(image, { name: 'graph.png' })],
+                });
             });
-            return interaction.editReply({
-                files: [new AttachmentBuilder(image, { name: 'graph.png' })],
+            collector.on('end', async () => {
+                await interaction.editReply({ components: [] });
             });
+            return;
         }
     }
     catch (err) {

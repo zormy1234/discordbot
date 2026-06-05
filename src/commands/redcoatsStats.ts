@@ -11,6 +11,7 @@ import {
 import connection from '../database/connect.js';
 import { RowDataPacket } from 'mysql2/promise';
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
+import type { ChartConfiguration } from 'chart.js';
 
 const chartCanvas = new ChartJSNodeCanvas({
   width: 1200,
@@ -31,7 +32,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption((o) =>
         o.setName('clan').setDescription('Clan').setRequired(false)
       )
-  // )
+  )
 
   // .addSubcommand((sub) =>
   //   sub
@@ -53,24 +54,27 @@ export const data = new SlashCommandBuilder()
   //     )
   // )
 
-  // .addSubcommand((sub) =>
-  //   sub
-  //     .setName('graph')
-  //     .setDescription('Player graph')
-  //     .addStringOption((o) =>
-  //       o.setName('gid').setDescription('gid').setRequired(true)
-  //     )
-  //     .addStringOption((o) =>
-  //       o
-  //         .setName('metric')
-  //         .setDescription('Metric')
-  //         .setRequired(true)
-  //         .addChoices(
-  //           { name: 'Player Kills', value: 'total_player_kills' },
-  //           { name: 'Bot Kills', value: 'total_kills' },
-  //           { name: 'KD Ratio', value: 'average_kd' }
-          // )
-      // )
+  .addSubcommand((sub) =>
+    sub
+      .setName('graph')
+      .setDescription('Player graph')
+      .addStringOption((o) =>
+        o
+          .setName('name')
+          .setDescription('Player name')
+          .setRequired(true)
+      )
+      .addStringOption((o) =>
+        o
+          .setName('metric')
+          .setDescription('Metric')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Player Kills', value: 'total_player_kills' },
+            { name: 'Bot Kills', value: 'total_kills' },
+            { name: 'KD Ratio', value: 'average_kd' }
+          )
+      )
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -262,39 +266,147 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // GRAPH
     // =========================
     if (sub === 'graph') {
-      const gid = interaction.options.getString('gid', true);
+      const name = interaction.options.getString('name', true);
       const metric = interaction.options.getString('metric', true);
-
+    
       const [rows] = await connection.execute<RowDataPacket[]>(
         `
-        SELECT *
-        FROM redcoats_daily_stats
-        WHERE gid = ?
-        ORDER BY stat_date ASC
+        SELECT
+          gid,
+          latest_username,
+          latest_clan,
+          total_player_kills,
+          total_kills,
+          average_kd,
+          total_games
+        FROM redcoats_player_stats
+        WHERE latest_username LIKE ?
+        ORDER BY total_player_kills DESC
+        LIMIT 5
         `,
-        [gid]
+        [`%${name}%`]
       );
-
+    
       if (!rows.length) {
-        return interaction.editReply('No graph data found');
+        return interaction.editReply(`❌ No Redcoats players found for **${name}**`);
       }
-
-      const image = await chartCanvas.renderToBuffer({
-        type: 'line',
-        data: {
-          labels: rows.map((r: any) => r.stat_date),
-          datasets: [
-            {
-              label: metric,
-              data: rows.map((r: any) => r[metric]),
-            },
-          ],
-        },
-      } as any);
-
-      return interaction.editReply({
-        files: [new AttachmentBuilder(image, { name: 'graph.png' })],
+    
+      const options = rows.map((r: any) => ({
+        label: `${r.latest_username} ${r.latest_clan ? `[${r.latest_clan}]` : ''}`,
+        description: `Kills: ${r.total_player_kills} | Games: ${r.total_games}`,
+        value: r.gid.toString(),
+      }));
+    
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId('redcoats_graph_select')
+        .setPlaceholder('Select a player for graph')
+        .addOptions(options);
+    
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+    
+      await interaction.editReply({
+        content: `Found ${rows.length} player(s) for **${name}** — select one to graph`,
+        components: [row],
       });
+    
+      const msg = await interaction.fetchReply();
+    
+      const collector = msg.createMessageComponentCollector({
+        componentType: ComponentType.StringSelect,
+        time: 60_000,
+      });
+    
+      collector.on('collect', async (i) => {
+        if (i.user.id !== interaction.user.id) {
+          return i.reply({
+            content: 'Not your selection.',
+            ephemeral: true,
+          });
+        }
+    
+        const gid = i.values[0];
+    
+        const [statsRows] = await connection.execute<RowDataPacket[]>(
+          `
+          SELECT *
+          FROM redcoats_daily_stats
+          WHERE gid = ?
+          ORDER BY stat_date ASC
+          `,
+          [gid]
+        );
+    
+        if (!statsRows.length) {
+          return i.update({
+            content: '❌ No graph data found for this player.',
+            components: [],
+          });
+        }
+    
+        const MAX_POINTS = 50;
+        const step = Math.max(1, Math.floor(statsRows.length / MAX_POINTS));
+    
+        const labels: string[] = [];
+        const data: number[] = [];
+    
+        for (let i2 = 0; i2 < statsRows.length; i2 += step) {
+          const r: any = statsRows[i2];
+          labels.push(new Date(r.stat_date).toLocaleDateString());
+          data.push(r[metric] ?? 0);
+        }
+    
+        const configuration: ChartConfiguration<'line'> = {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: metric,
+                data,
+                borderColor: 'rgba(0, 132, 148, 1)',
+                backgroundColor: 'rgba(0, 132, 148, 0.2)',
+                tension: 0.2,
+                borderWidth: 5,
+                pointRadius: 3,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date',
+                  font: { size: 18, weight: 'bold' },
+                },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: metric,
+                  font: { size: 18, weight: 'bold' },
+                },
+                beginAtZero: true,
+              },
+            },
+          },
+        };
+    
+        const image = await chartCanvas.renderToBuffer(configuration);
+    
+        return i.update({
+          content: `📈 Graph for **${rows.find((r: any) => r.gid == gid)?.latest_username || 'Player'}**`,
+          embeds: [],
+          components: [],
+          files: [new AttachmentBuilder(image, { name: 'graph.png' })],
+        });
+      });
+    
+      collector.on('end', async () => {
+        await interaction.editReply({ components: [] });
+      });
+    
+      return;
     }
   } catch (err) {
     console.error('redcoats command error:', err);
