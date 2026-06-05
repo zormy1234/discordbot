@@ -1,6 +1,8 @@
 import { Client, Message } from 'discord.js';
 import { storeInShipsDb, storeInDb as storeInTanksDb } from './StoreWinLogs.js';
 import forwardWinlogs from './ForwardWinLogs.js';
+import { parseRedcoatsMessage } from '../redcoats/parser.js';
+import { storeGame } from '../redcoats/storeGame.js';
 
 export interface ParsedLine {
   rank: number;
@@ -98,59 +100,78 @@ export default function handleWinlogs(client: Client) {
   client.on('messageCreate', async (message: Message) => {
     if (message.author.id === client.user?.id) return;
 
+    // if (
+    //   message.guild?.id === process.env.WINLOGS_DISCORD &&
+    //   message.channel.id === process.env.WINLOGS_CHANNEL
+    // ) {
+    //   const content = message.content.replace(/```/g, '');
+    //   const lines: RawWithParsed[] = content
+    //     .split('\n')
+    //     .map((l) => l.trim())
+    //     .filter(Boolean)
+    //     .flatMap((l) => {
+    //       const parsed = parseTanksLine(l);
+    //       return { raw: l, parsed: parsed };
+    //     })
+    //     .filter((parsedWithLine) => parsedWithLine.parsed != undefined);
+
+    //   if (lines.length == 0) {
+    //     return;
+    //   }
+
+    //   console.log(
+    //     `recieved message for tanks starting with line ${lines[0].raw}`
+    //   );
+
+    //   await forwardWinlogs(client, lines);
+    //   await storeInTanksDb(lines, message);
+    //   console.log(`finished handling line starting with line ${lines[0].raw}`);
+    // }
+
+    // if (
+    //   message.guild?.id === process.env.SHIPS_WINLOGS_DISCORD &&
+    //   message.channel.id === process.env.SHIPS_WINLOGS_CHANNEL
+    // ) {
+    //   const content = message.content.replace(/```/g, '');
+    //   const lines: RawWithParsed[] = content
+    //     .split('\n')
+    //     .map((l) => l.trim())
+    //     .filter(Boolean)
+    //     .flatMap((l) => {
+    //       const parsed = parseShipsLine(l);
+    //       return { raw: l, parsed: parsed };
+    //     })
+    //     .filter((parsedWithLine) => parsedWithLine.parsed != undefined);
+
+    //   if (lines.length == 0) {
+    //     return;
+    //   }
+
+    //   console.log(
+    //     `recieved message for ships starting with line ${lines[0].raw}`
+    //   );
+
+    //   await storeInShipsDb(lines, message);
+    //   console.log(`finished handling line starting with line ${lines[0].raw}`);
+    // }
+
     if (
-      message.guild?.id === process.env.WINLOGS_DISCORD &&
-      message.channel.id === process.env.WINLOGS_CHANNEL
+      message.guild?.id === process.env.RC_WINLOGS_DISCORD &&
+      message.channel.id === process.env.RC_WINLOGS_CHANNEL
     ) {
       const content = message.content.replace(/```/g, '');
-      const lines: RawWithParsed[] = content
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .flatMap((l) => {
-          const parsed = parseTanksLine(l);
-          return { raw: l, parsed: parsed };
-        })
-        .filter((parsedWithLine) => parsedWithLine.parsed != undefined);
+      const parsed = parseRedcoatsMessage(content);
 
-      if (lines.length == 0) {
+      if (!parsed.length) {
         return;
       }
 
-      console.log(
-        `recieved message for tanks starting with line ${lines[0].raw}`
-      );
-
-      await forwardWinlogs(client, lines);
-      await storeInTanksDb(lines, message);
-      console.log(`finished handling line starting with line ${lines[0].raw}`);
-    }
-
-    if (
-      message.guild?.id === process.env.SHIPS_WINLOGS_DISCORD &&
-      message.channel.id === process.env.SHIPS_WINLOGS_CHANNEL
-    ) {
-      const content = message.content.replace(/```/g, '');
-      const lines: RawWithParsed[] = content
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .flatMap((l) => {
-        const parsed = parseShipsLine(l);
-        return { raw: l, parsed: parsed };
-      })
-      .filter((parsedWithLine) => parsedWithLine.parsed != undefined);
-      
-      if (lines.length == 0) {
-        return;
-      }
-
-      console.log(
-        `recieved message for ships starting with line ${lines[0].raw}`
-      );
-
-      await storeInShipsDb(lines, message);
-      console.log(`finished handling line starting with line ${lines[0].raw}`);
+      await storeGame({
+        guildId: message.guildId!,
+        channelId: message.channelId,
+        messageId: message.id,
+        results: parsed,
+      });
     }
   });
 }
