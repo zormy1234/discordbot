@@ -1,18 +1,12 @@
 import { enqueuePrivateDb } from '../database/dbQueue.js';
 import connection from '../database/connect.js';
+import { ParsedPlayerResult } from './parser.js';
 
 interface StoreGameInput {
   guildId: string;
   channelId: string;
   messageId: string;
-  results: any[];
-}
-
-interface StoreGameInput {
-  guildId: string;
-  channelId: string;
-  messageId: string;
-  results: any[];
+  results: ParsedPlayerResult[];
 }
 
 export async function storeGame(input: StoreGameInput) {
@@ -28,7 +22,7 @@ export async function storeGame(input: StoreGameInput) {
             INSERT INTO redcoats_game_results (
               gid,
               username,
-              clan,
+              latest_clan,
               rank,
               score,
               kills,

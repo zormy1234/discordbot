@@ -8,7 +8,7 @@ export async function storeGame(input) {
             INSERT INTO redcoats_game_results (
               gid,
               username,
-              clan,
+              latest_clan,
               rank,
               score,
               kills,

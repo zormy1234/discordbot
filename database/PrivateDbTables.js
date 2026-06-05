@@ -141,7 +141,7 @@ export async function initDB() {
 
       gid VARCHAR(64) NOT NULL,
       username VARCHAR(255) NOT NULL,
-      clan VARCHAR(255),
+      latest_clan VARCHAR(255),
 
       rank INT NOT NULL,
       score INT NOT NULL,
@@ -199,6 +199,7 @@ export async function initDB() {
 
       total_player_kills INT NOT NULL DEFAULT 0,
       total_kills INT NOT NULL DEFAULT 0,
+      latest_clan VARCHAR(255),
 
       average_kd DECIMAL(10,4)
         NOT NULL DEFAULT 0,
