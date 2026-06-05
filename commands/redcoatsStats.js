@@ -322,7 +322,7 @@ export async function execute(interaction) {
                         ? Number(row.value).toFixed(2)
                         : Number(row.value).toLocaleString();
                     const clan = row.latest_clan ? `[${row.latest_clan}] ` : '';
-                    description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value}`;
+                    description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value} \n`;
                 });
                 const embed = new EmbedBuilder()
                     .setTitle(`${alltime ? 'All Time' : 'Last 2 Months'} ${metric} Leaderboard`)

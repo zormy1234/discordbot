@@ -444,7 +444,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
           const clan = row.latest_clan ? `[${row.latest_clan}] ` : '';
 
-          description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value}`;
+          description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value} \n`;
         });
 
         const embed = new EmbedBuilder()
