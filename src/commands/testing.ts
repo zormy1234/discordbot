@@ -21,9 +21,6 @@ import {
   }
   
   class RedcoatsImporter {
-    // =========================
-    // FETCH MESSAGES
-    // =========================
     async fetchAllMessages(channel: TextChannel | NewsChannel) {
       const messages = [];
   
@@ -44,9 +41,6 @@ import {
       return messages;
     }
   
-    // =========================
-    // PARSER
-    // =========================
     parseResults(content: string): ParsedPlayerResult[] {
       const lines = content
         .split('\n')
@@ -103,66 +97,70 @@ import {
     }
   
     // =========================
-    // STORE GAME RESULTS (RAW)
+    // SAFE BULK INSERT (NO PLACEHOLDER LIMITS)
     // =========================
     async insertGameResults(rows: ParsedPlayerResult[]) {
-      const values = rows.map((r) => [
-        r.gid,
-        r.username,
-        r.clan,
-        r.rank,
-        r.score,
-        r.kills,
-        r.playerKills,
-        r.deaths,
-        r.playerKills / Math.max(r.deaths, 1),
-      ]);
+      if (!rows.length) return;
   
-      if (!values.length) return;
+      const BATCH_SIZE = 1000;
   
-      const placeholders = values.map(() => '(?,?,?,?,?,?,?,?,?)').join(',');
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
   
-      await connection.execute(
-        `
-        INSERT INTO redcoats_game_results (
-          gid,
-          username,
-          latest_clan,
-          rank,
-          score,
-          kills,
-          player_kills,
-          deaths,
-          kd
-        )
-        VALUES ${placeholders}
-        `,
-        values.flat()
-      );
+        const values = batch.map((r) => [
+          r.gid,
+          r.username,
+          r.clan,
+          r.rank,
+          r.score,
+          r.kills,
+          r.playerKills,
+          r.deaths,
+          r.playerKills / Math.max(r.deaths, 1),
+        ]);
+  
+        await connection.query(
+          `
+          INSERT INTO redcoats_game_results (
+            gid,
+            username,
+            latest_clan,
+            rank,
+            score,
+            kills,
+            player_kills,
+            deaths,
+            kd
+          )
+          VALUES ?
+          `,
+          [values]
+        );
+      }
     }
   
-    // =========================
-    // PLAYER NAMES TABLE
-    // =========================
     async upsertPlayerNames(rows: ParsedPlayerResult[]) {
-      const values = rows.map((r) => [r.gid, r.username]);
+      if (!rows.length) return;
   
-      const placeholders = values.map(() => '(?, ?)').join(',');
+      const BATCH_SIZE = 1000;
   
-      await connection.execute(
-        `
-        INSERT INTO redcoats_player_names (gid, username)
-        VALUES ${placeholders}
-        ON DUPLICATE KEY UPDATE
-          last_seen = CURRENT_TIMESTAMP
-        `,
-        values.flat()
-      );
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
+  
+        const values = batch.map((r) => [r.gid, r.username]);
+  
+        await connection.query(
+          `
+          INSERT INTO redcoats_player_names (gid, username)
+          VALUES ?
+          ON DUPLICATE KEY UPDATE
+            last_seen = CURRENT_TIMESTAMP
+          `,
+          [values]
+        );
+      }
     }
   
-    // =========================
-    // REBUILD PLAYER STATS FROM GAME RESULTS
-    // =========================
     async rebuildPlayerStats() {
       await connection.execute(`
         INSERT INTO redcoats_player_stats (
@@ -181,17 +179,17 @@ import {
         )
         SELECT
           gid,
-          MAX(username) as latest_username,
-          MAX(latest_clan) as latest_clan,
-          COUNT(*) as total_games,
-          SUM(score) as total_score,
-          SUM(kills) as total_kills,
-          SUM(player_kills) as total_player_kills,
-          SUM(deaths) as total_deaths,
-          MAX(score) as highest_score,
-          MAX(kd) as best_single_game_kd,
-          SUM(player_kills) / GREATEST(SUM(deaths), 1) as average_kd,
-          MAX(created_at) as last_seen
+          MAX(username),
+          MAX(latest_clan),
+          COUNT(*),
+          SUM(score),
+          SUM(kills),
+          SUM(player_kills),
+          SUM(deaths),
+          MAX(score),
+          MAX(kd),
+          SUM(player_kills) / GREATEST(SUM(deaths), 1),
+          MAX(created_at)
         FROM redcoats_game_results
         GROUP BY gid
         ON DUPLICATE KEY UPDATE
@@ -209,9 +207,6 @@ import {
       `);
     }
   
-    // =========================
-    // REBUILD DAILY STATS
-    // =========================
     async rebuildDailyStats() {
       await connection.execute(`
         INSERT INTO redcoats_daily_stats (
@@ -224,7 +219,7 @@ import {
         )
         SELECT
           gid,
-          DATE(created_at) as stat_date,
+          DATE(created_at),
           SUM(player_kills),
           SUM(kills),
           AVG(kd),
@@ -239,9 +234,6 @@ import {
       `);
     }
   
-    // =========================
-    // MAIN RUN
-    // =========================
     async run(channel: TextChannel | NewsChannel) {
       const start = Date.now();
   
@@ -254,13 +246,8 @@ import {
         if (parsed.length) allResults.push(...parsed);
       }
   
-      // 1. RAW GAME INSERTS
       await this.insertGameResults(allResults);
-  
-      // 2. PLAYER NAME TRACKING
       await this.upsertPlayerNames(allResults);
-  
-      // 3. REBUILD DERIVED TABLES
       await this.rebuildPlayerStats();
       await this.rebuildDailyStats();
   
@@ -272,64 +259,51 @@ import {
     }
   }
   
-  // =========================
-  // DISCORD COMMAND
-  // =========================
-  
   export const data = new SlashCommandBuilder()
     .setName('no')
     .setDescription('Redcoats commands')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand((sub) =>
-      sub
-        .setName('import')
-        .setDescription('Import all Redcoats stats from this channel')
+      sub.setName('import').setDescription('Import all Redcoats stats')
     );
   
   export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply();
   
-    try {
-      if (
-        !interaction.memberPermissions?.has(
-          PermissionFlagsBits.Administrator
-        )
-      ) {
-        return interaction.editReply('❌ Administrator permission required.');
-      }
-  
-      const channel = interaction.channel;
-  
-      if (!channel) {
-        return interaction.editReply('Could not determine channel.');
-      }
-  
-      if (
-        channel.type !== ChannelType.GuildText &&
-        channel.type !== ChannelType.GuildAnnouncement
-      ) {
-        return interaction.editReply(
-          'This command can only be run inside a text or announcement channel.'
-        );
-      }
-  
-      const importer = new RedcoatsImporter();
-  
-      const result = await importer.run(
-        channel as TextChannel | NewsChannel
-      );
-  
-      return interaction.editReply(
-        [
-          '✅ Redcoats import complete',
-          '',
-          `Messages scanned: ${result.messages}`,
-          `Player records parsed: ${result.records}`,
-          `Duration: ${result.duration}s`,
-        ].join('\n')
-      );
-    } catch (err) {
-      console.error('Redcoats import failed:', err);
-      return interaction.editReply('❌ Import failed. Check logs.');
+    if (
+      !interaction.memberPermissions?.has(
+        PermissionFlagsBits.Administrator
+      )
+    ) {
+      return interaction.editReply('❌ Admin only.');
     }
+  
+    const channel = interaction.channel;
+  
+    if (!channel) {
+      return interaction.editReply('No channel found.');
+    }
+  
+    if (
+      channel.type !== ChannelType.GuildText &&
+      channel.type !== ChannelType.GuildAnnouncement
+    ) {
+      return interaction.editReply('Invalid channel type.');
+    }
+  
+    const importer = new RedcoatsImporter();
+  
+    const result = await importer.run(
+      channel as TextChannel | NewsChannel
+    );
+  
+    return interaction.editReply(
+      [
+        '✅ Import complete',
+        '',
+        `Messages: ${result.messages}`,
+        `Records: ${result.records}`,
+        `Duration: ${result.duration}s`,
+      ].join('\n')
+    );
   }
