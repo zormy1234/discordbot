@@ -59,10 +59,7 @@ export const data = new SlashCommandBuilder()
       .setName('graph')
       .setDescription('Player graph')
       .addStringOption((o) =>
-        o
-          .setName('name')
-          .setDescription('Player name')
-          .setRequired(true)
+        o.setName('name').setDescription('Player name').setRequired(true)
       )
       .addStringOption((o) =>
         o
@@ -73,6 +70,12 @@ export const data = new SlashCommandBuilder()
             { name: 'Kills', value: 'total_kills' },
             { name: 'KD Ratio', value: 'average_kd' }
           )
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('months')
+          .setDescription('How many months of data (leave empty for all time)')
+          .setRequired(false)
       )
   );
 
@@ -88,7 +91,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     if (sub === 'stats') {
       const name = interaction.options.getString('name', true);
       const clan = interaction.options.getString('clan');
-    
+
       const [rows] = await connection.execute<RowDataPacket[]>(
         `
         SELECT
@@ -108,7 +111,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         `,
         clan ? [`%${name}%`, clan] : [`%${name}%`]
       );
-    
+
       if (!rows.length) {
         return interaction.editReply(
           `❌ No Redcoats players found for **${name}**${
@@ -116,32 +119,34 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           }`
         );
       }
-    
+
       const options = rows.map((r: any) => ({
         label: `${r.latest_username} ${r.latest_clan ? `[${r.latest_clan}]` : ''}`,
         description: `Kills: ${r.total_player_kills} | Games: ${r.total_games}`,
         value: r.gid.toString(),
       }));
-    
+
       const menu = new StringSelectMenuBuilder()
         .setCustomId('redcoats_stats_select')
         .setPlaceholder('Select a player')
         .addOptions(options);
-    
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-    
+
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        menu
+      );
+
       await interaction.editReply({
         content: `Found ${rows.length} player(s) for **${name}**`,
         components: [row],
       });
-    
+
       const msg = await interaction.fetchReply();
-    
+
       const collector = msg.createMessageComponentCollector({
         componentType: ComponentType.StringSelect,
         time: 60_000,
       });
-    
+
       collector.on('collect', async (i) => {
         if (i.user.id !== interaction.user.id) {
           return i.reply({
@@ -149,9 +154,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             ephemeral: true,
           });
         }
-    
+
         const gid = i.values[0];
-    
+
         const [statsRows] = await connection.execute<RowDataPacket[]>(
           `
           SELECT
@@ -168,19 +173,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           `,
           [gid]
         );
-    
+
         if (!statsRows.length) {
           return i.update({
             content: '❌ No stats found for this player.',
             components: [],
           });
         }
-    
+
         const s: any = statsRows[0];
-    
+
         const avgKd = Number(s.average_kd ?? 0);
         const bestKd = Number(s.best_single_game_kd ?? 0);
-        
+
         const embed = new EmbedBuilder()
           .setTitle(
             `Redcoats Stats for ${s.latest_clan || ''} ${
@@ -210,18 +215,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               inline: false,
             }
           );
-    
+
         return i.update({
           content: `Stats for **${s.latest_username}**`,
           embeds: [embed],
           components: [],
         });
       });
-    
+
       collector.on('end', async () => {
         await interaction.editReply({ components: [] });
       });
-    
+
       return;
     }
 
@@ -270,8 +275,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       const isKD = metric === 'average_kd';
       const isKills = metric === 'total_kills';
-      
-      const mode: 'kd' | 'kills' = isKD ? 'kd' : 'kills';    
+
+      const mode: 'kd' | 'kills' = isKD ? 'kd' : 'kills';
       const [rows] = await connection.execute<RowDataPacket[]>(
         `
         SELECT
@@ -289,36 +294,40 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         `,
         [`%${name}%`]
       );
-    
+
       if (!rows.length) {
-        return interaction.editReply(`❌ No Redcoats players found for **${name}**`);
+        return interaction.editReply(
+          `❌ No Redcoats players found for **${name}**`
+        );
       }
-    
+
       const options = rows.map((r: any) => ({
         label: `${r.latest_username} ${r.latest_clan ? `[${r.latest_clan}]` : ''}`,
         description: `Kills: ${r.total_player_kills} | Games: ${r.total_games}`,
         value: r.gid.toString(),
       }));
-    
+
       const menu = new StringSelectMenuBuilder()
         .setCustomId('redcoats_graph_select')
         .setPlaceholder('Select a player for graph')
         .addOptions(options);
-    
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-    
+
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        menu
+      );
+
       await interaction.editReply({
         content: `Found ${rows.length} player(s) for **${name}** — select one to graph`,
         components: [row],
       });
-    
+
       const msg = await interaction.fetchReply();
-    
+
       const collector = msg.createMessageComponentCollector({
         componentType: ComponentType.StringSelect,
         time: 60_000,
       });
-    
+
       collector.on('collect', async (i) => {
         if (i.user.id !== interaction.user.id) {
           return i.reply({
@@ -326,57 +335,70 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             ephemeral: true,
           });
         }
-    
+
         const gid = i.values[0];
-    
+
+        const months = interaction.options.getInteger('months');
         const [statsRows] = await connection.execute<RowDataPacket[]>(
           `
-          SELECT *
-          FROM redcoats_daily_stats
-          WHERE gid = ?
-          ORDER BY stat_date ASC
-          `,
-          [gid]
+            SELECT *
+            FROM redcoats_daily_stats
+            WHERE gid = ?
+            ${months ? 'AND stat_date >= NOW() - INTERVAL ? MONTH' : ''}
+            ORDER BY stat_date ASC
+            `,
+          months ? [gid, months] : [gid]
         );
-    
+
         if (!statsRows.length) {
           return i.update({
             content: '❌ No graph data found for this player.',
             components: [],
           });
         }
-    
-        const MAX_POINTS = 50;
-        const step = Math.max(1, Math.floor(statsRows.length / MAX_POINTS));
-    
-        const labels: string[] = [];
 
+        const MAX_POINTS = 80;
+        const n = statsRows.length;
+
+        const labels: string[] = [];
         const kdData: number[] = [];
         const cumulativeBotKills: number[] = [];
         const cumulativePlayerKills: number[] = [];
-        
-        let botSum = 0;
-        let playerSum = 0;
-        
-        for (let i2 = 0; i2 < statsRows.length; i2 += step) {
-          const r: any = statsRows[i2];
-        
-          labels.push(new Date(r.stat_date).toLocaleDateString());
-        
-          // KD mode
-          if (mode === 'kd') {
-            kdData.push(Number(r.average_kd ?? 0));
-            continue;
+
+        if (n <= MAX_POINTS) {
+          // no grouping needed
+          for (const r of statsRows as any[]) {
+            labels.push(new Date(r.stat_date).toLocaleDateString());
+
+            if (mode === 'kd') {
+              kdData.push(Number(r.average_kd ?? 0));
+            } else {
+              cumulativeBotKills.push(Number(r.total_kills ?? 0));
+              cumulativePlayerKills.push(Number(r.total_player_kills ?? 0));
+            }
           }
-        
-          // Kills mode (cumulative comparison)
-          botSum += Number(r.total_kills ?? 0);
-          playerSum += Number(r.total_player_kills ?? 0);
-        
-          cumulativeBotKills.push(botSum);
-          cumulativePlayerKills.push(playerSum);
+        } else {
+          const groupSize = Math.ceil(n / MAX_POINTS);
+
+          for (let i = 0; i < n; i += groupSize) {
+            const group = statsRows.slice(i, i + groupSize) as any[];
+
+            const last = group[group.length - 1];
+
+            labels.push(new Date(last.stat_date).toLocaleDateString());
+
+            if (mode === 'kd') {
+              const avgKd =
+                group.reduce((sum, r) => sum + Number(r.average_kd ?? 0), 0) /
+                group.length;
+
+              kdData.push(avgKd);
+            } else {
+              cumulativeBotKills.push(Number(last.total_kills ?? 0));
+              cumulativePlayerKills.push(Number(last.total_player_kills ?? 0));
+            }
+          }
         }
-    
         const configuration: ChartConfiguration<'line'> = {
           type: 'line',
           data: {
@@ -435,9 +457,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             },
           },
         };
-        
+
         const image = await chartCanvas.renderToBuffer(configuration);
-    
+
         return i.update({
           content: `📈 Graph for **${rows.find((r: any) => r.gid == gid)?.latest_username || 'Player'}**`,
           embeds: [],
@@ -445,11 +467,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           files: [new AttachmentBuilder(image, { name: 'graph.png' })],
         });
       });
-    
+
       collector.on('end', async () => {
         await interaction.editReply({ components: [] });
       });
-    
+
       return;
     }
   } catch (err) {

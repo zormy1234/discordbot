@@ -35,15 +35,16 @@ export const data = new SlashCommandBuilder()
     .addSubcommand((sub) => sub
     .setName('graph')
     .setDescription('Player graph')
-    .addStringOption((o) => o
-    .setName('name')
-    .setDescription('Player name')
-    .setRequired(true))
+    .addStringOption((o) => o.setName('name').setDescription('Player name').setRequired(true))
     .addStringOption((o) => o
     .setName('metric')
     .setDescription('Metric')
     .setRequired(true)
-    .addChoices({ name: 'Kills', value: 'total_kills' }, { name: 'KD Ratio', value: 'average_kd' })));
+    .addChoices({ name: 'Kills', value: 'total_kills' }, { name: 'KD Ratio', value: 'average_kd' }))
+    .addIntegerOption((o) => o
+    .setName('months')
+    .setDescription('How many months of data (leave empty for all time)')
+    .setRequired(false)));
 export async function execute(interaction) {
     await interaction.deferReply();
     const sub = interaction.options.getSubcommand();
@@ -228,39 +229,55 @@ export async function execute(interaction) {
                     });
                 }
                 const gid = i.values[0];
+                const months = interaction.options.getInteger('months');
                 const [statsRows] = await connection.execute(`
-          SELECT *
-          FROM redcoats_daily_stats
-          WHERE gid = ?
-          ORDER BY stat_date ASC
-          `, [gid]);
+            SELECT *
+            FROM redcoats_daily_stats
+            WHERE gid = ?
+            ${months ? 'AND stat_date >= NOW() - INTERVAL ? MONTH' : ''}
+            ORDER BY stat_date ASC
+            `, months ? [gid, months] : [gid]);
                 if (!statsRows.length) {
                     return i.update({
                         content: '❌ No graph data found for this player.',
                         components: [],
                     });
                 }
-                const MAX_POINTS = 50;
-                const step = Math.max(1, Math.floor(statsRows.length / MAX_POINTS));
+                const MAX_POINTS = 80;
+                const n = statsRows.length;
                 const labels = [];
                 const kdData = [];
                 const cumulativeBotKills = [];
                 const cumulativePlayerKills = [];
-                let botSum = 0;
-                let playerSum = 0;
-                for (let i2 = 0; i2 < statsRows.length; i2 += step) {
-                    const r = statsRows[i2];
-                    labels.push(new Date(r.stat_date).toLocaleDateString());
-                    // KD mode
-                    if (mode === 'kd') {
-                        kdData.push(Number(r.average_kd ?? 0));
-                        continue;
+                if (n <= MAX_POINTS) {
+                    // no grouping needed
+                    for (const r of statsRows) {
+                        labels.push(new Date(r.stat_date).toLocaleDateString());
+                        if (mode === 'kd') {
+                            kdData.push(Number(r.average_kd ?? 0));
+                        }
+                        else {
+                            cumulativeBotKills.push(Number(r.total_kills ?? 0));
+                            cumulativePlayerKills.push(Number(r.total_player_kills ?? 0));
+                        }
                     }
-                    // Kills mode (cumulative comparison)
-                    botSum += Number(r.total_kills ?? 0);
-                    playerSum += Number(r.total_player_kills ?? 0);
-                    cumulativeBotKills.push(botSum);
-                    cumulativePlayerKills.push(playerSum);
+                }
+                else {
+                    const groupSize = Math.ceil(n / MAX_POINTS);
+                    for (let i = 0; i < n; i += groupSize) {
+                        const group = statsRows.slice(i, i + groupSize);
+                        const last = group[group.length - 1];
+                        labels.push(new Date(last.stat_date).toLocaleDateString());
+                        if (mode === 'kd') {
+                            const avgKd = group.reduce((sum, r) => sum + Number(r.average_kd ?? 0), 0) /
+                                group.length;
+                            kdData.push(avgKd);
+                        }
+                        else {
+                            cumulativeBotKills.push(Number(last.total_kills ?? 0));
+                            cumulativePlayerKills.push(Number(last.total_player_kills ?? 0));
+                        }
+                    }
                 }
                 const configuration = {
                     type: 'line',
