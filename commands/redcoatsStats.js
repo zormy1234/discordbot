@@ -231,7 +231,7 @@ export async function execute(interaction) {
                     ps.latest_username,
                     ps.latest_clan,
 
-                    AVG(ds.kd) AS value,
+                    AVG(ds.average_kd) AS value,
 
                     SUM(ds.games_played) AS total_games
 
