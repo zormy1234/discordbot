@@ -329,14 +329,28 @@ export async function execute(interaction) {
                                 title: {
                                     display: true,
                                     text: 'Date',
-                                    font: { size: 18, weight: 'bold' },
+                                    font: { size: 25, weight: 'bold' },
+                                    color: '#ffffff',
+                                },
+                                ticks: {
+                                    color: '#ffffff',
+                                    font: {
+                                        size: 20,
+                                    },
                                 },
                             },
                             y: {
                                 title: {
                                     display: true,
                                     text: mode === 'kd' ? 'K/D Ratio' : 'Cumulative Kills',
-                                    font: { size: 18, weight: 'bold' },
+                                    font: { size: 25, weight: 'bold' },
+                                    color: '#ffffff',
+                                },
+                                ticks: {
+                                    color: '#ffffff',
+                                    font: {
+                                        size: 25,
+                                    },
                                 },
                                 beginAtZero: true,
                             },
