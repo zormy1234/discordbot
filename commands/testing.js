@@ -84,6 +84,7 @@ class RedcoatsImporter {
                 r.playerKills,
                 r.deaths,
                 r.playerKills / Math.max(r.deaths, 1),
+                r.createdAt
             ]);
             await connection.query(`
           INSERT INTO redcoats_game_results (
@@ -95,7 +96,8 @@ class RedcoatsImporter {
             kills,
             player_kills,
             deaths,
-            kd
+            kd,
+            created_at
           )
           VALUES ?
           `, [values]);

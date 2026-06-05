@@ -119,6 +119,7 @@ import {
           r.playerKills,
           r.deaths,
           r.playerKills / Math.max(r.deaths, 1),
+          r.createdAt
         ]);
   
         await connection.query(
@@ -132,7 +133,8 @@ import {
             kills,
             player_kills,
             deaths,
-            kd
+            kd,
+            created_at
           )
           VALUES ?
           `,
