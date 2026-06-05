@@ -321,12 +321,7 @@ export async function execute(interaction) {
                     description += `${i + idx + 1}. ${clan}${row.latest_username} — ${value} (${row.total_games} games)\n`;
                 });
                 const embed = new EmbedBuilder()
-                    .setTitle(`${alltime ? 'All Time' : 'Last 2 Months'} Leaderboard`)
-                    .addFields({
-                    name: 'Metric',
-                    value: metricNames[metric],
-                    inline: false,
-                })
+                    .setTitle(`${alltime ? 'All Time' : 'Last 2 Months'} ${metric} Leaderboard`)
                     .setDescription(description)
                     .setColor(0x008494)
                     .setFooter({
