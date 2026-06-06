@@ -31,7 +31,10 @@ export const data = new SlashCommandBuilder()
         'Request linking your Discord account to a Redcoats account'
       )
       .addStringOption((option) =>
-        option.setName('gid').setDescription('Redcoats GID').setRequired(true)
+        option.setName('name').setDescription('Player name, only required if you dont have a GID').setRequired(false)
+      )
+      .addStringOption((option) =>
+        option.setName('gid').setDescription('Redcoats GID, leave empty if you dont know what this mean').setRequired(false)
       )
   )
 
@@ -235,7 +238,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       if (!linkRows.length) {
         return interaction.editReply(
-          '❌ Your Discord account is not linked. Use /redcoats link and wait for an admin to approve the link request.'
+          '❌ Your Discord account is not linked. Use /redcoats link and wait for an admin to approve the link request, or use /redcoats stats instead of mystats.'
         );
       }
 
@@ -813,67 +816,100 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return;
     }
     if (sub === 'link') {
-      const gid = interaction.options.getString('gid', true);
+      const gid = interaction.options.getString('gid');
+      const name = interaction.options.getString('name');
 
-      const names = await RedcoatsRepository.getKnownNames(gid);
-
-      const requestId = await RedcoatsRepository.createLinkRequest(
-        interaction.user.id,
-        gid,
-        interaction.channelId
-      );
-
-      const embed = new EmbedBuilder()
-        .setTitle('Redcoats Link Request')
-        .addFields(
-          {
-            name: 'Discord User',
-            value: `<@${interaction.user.id}>`,
-          },
-          {
-            name: 'GID',
-            value: gid,
-          },
-          {
-            name: 'Known Names',
-            value: names.length > 0 ? names.join('\n') : 'None found',
-          }
+      if (!gid && !name) {
+        return interaction.editReply(
+          '❌ Please provide either a player name or a GID.'
         );
-
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`rc_link_approve:${requestId}`)
-          .setLabel('Approve')
-          .setStyle(ButtonStyle.Success),
-
-        new ButtonBuilder()
-          .setCustomId(`rc_link_reject:${requestId}`)
-          .setLabel('Reject')
-          .setStyle(ButtonStyle.Danger)
-      );
-
-      const approvalChannel = await interaction.client.channels.fetch(
-        process.env.LINK_RC_CHANNEL!
-      );
-
-      if (
-        !approvalChannel ||
-        !approvalChannel.isTextBased() ||
-        !approvalChannel.isSendable()
-      ) {
-        throw new Error('LINK_RC_CHANNEL invalid');
       }
 
-      const message = await approvalChannel.send({
-        embeds: [embed],
+      //
+      // Direct GID path
+      //
+      if (gid) {
+        await createLinkRequest(interaction, gid);
+        return;
+      }
+
+      //
+      // Name search path
+      //
+      const [rows] = await connection.execute<RowDataPacket[]>(
+        `
+        SELECT
+          gid,
+          latest_username,
+          latest_clan,
+          total_player_kills,
+          total_games
+        FROM redcoats_player_stats
+        WHERE latest_username LIKE ?
+        ORDER BY total_player_kills DESC
+        LIMIT 5
+        `,
+        [`%${name}%`]
+      );
+
+      if (!rows.length) {
+        return interaction.editReply(
+          `❌ No Redcoats players found for **${name}**`
+        );
+      }
+
+      const options = rows.map((r: any) => ({
+        label: `${r.latest_username} ${r.latest_clan ? `[${r.latest_clan}]` : ''}`,
+        description: `Kills: ${r.total_player_kills} | Games: ${r.total_games}`,
+        value: r.gid.toString(),
+      }));
+
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId('redcoats_link_select')
+        .setPlaceholder('Select the account to link')
+        .addOptions(options);
+
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        menu
+      );
+
+      await interaction.editReply({
+        content: `Found ${rows.length} player(s) for **${name}**`,
         components: [row],
       });
 
-      await RedcoatsRepository.setApprovalMessage(requestId, message.id);
+      const msg = await interaction.fetchReply();
 
-      await interaction.editReply({
-        content: 'Your request to link your discord account has been submitted.'
+      const collector = msg.createMessageComponentCollector({
+        componentType: ComponentType.StringSelect,
+        time: 60_000,
       });
+
+      collector.on('collect', async (i) => {
+        if (i.user.id !== interaction.user.id) {
+          return i.reply({
+            content: 'Not your selection.',
+            ephemeral: true,
+          });
+        }
+
+        const selectedGid = i.values[0];
+
+        await i.update({
+          content: 'Submitting link request...',
+          components: [],
+        });
+
+        await createLinkRequest(interaction, selectedGid);
+      });
+
+      collector.on('end', async () => {
+        await interaction.editReply({
+          components: [],
+        });
+      });
+
+      return;
     }
   } catch (err) {
     console.error('redcoats command error:', err);
@@ -918,4 +954,68 @@ function statsEmbed(statsRows: RowDataPacket[], gid: string) {
       }
     );
   return { s, embed };
+}
+
+async function createLinkRequest(
+  interaction: ChatInputCommandInteraction,
+  gid: string
+) {
+  const names = await RedcoatsRepository.getKnownNames(gid);
+
+  const requestId = await RedcoatsRepository.createLinkRequest(
+    interaction.user.id,
+    gid,
+    interaction.channelId
+  );
+
+  const embed = new EmbedBuilder().setTitle('Redcoats Link Request').addFields(
+    {
+      name: 'Discord User',
+      value: `<@${interaction.user.id}>`,
+    },
+    {
+      name: 'GID',
+      value: gid,
+    },
+    {
+      name: 'Known Names',
+      value: names.length > 0 ? names.join('\n') : 'None found',
+    }
+  );
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`rc_link_approve:${requestId}`)
+      .setLabel('Approve')
+      .setStyle(ButtonStyle.Success),
+
+    new ButtonBuilder()
+      .setCustomId(`rc_link_reject:${requestId}`)
+      .setLabel('Reject')
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  const approvalChannel = await interaction.client.channels.fetch(
+    process.env.LINK_RC_CHANNEL!
+  );
+
+  if (
+    !approvalChannel ||
+    !approvalChannel.isTextBased() ||
+    !approvalChannel.isSendable()
+  ) {
+    throw new Error('LINK_RC_CHANNEL invalid');
+  }
+
+  const message = await approvalChannel.send({
+    embeds: [embed],
+    components: [row],
+  });
+
+  await RedcoatsRepository.setApprovalMessage(requestId, message.id);
+
+  await interaction.editReply({
+    content: 'Your request to link your Discord account has been submitted.',
+    components: [],
+  });
 }
