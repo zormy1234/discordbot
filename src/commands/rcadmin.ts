@@ -9,6 +9,7 @@ import connection from '../database/connect.js';
 export const data = new SlashCommandBuilder()
   .setName('rcadmin')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  .setDescription("admin stuff")
   .addSubcommand((sub) =>
     sub
       .setName('roles')
@@ -27,6 +28,7 @@ export const data = new SlashCommandBuilder()
       .addNumberOption((option) =>
         option
           .setName('threshold')
+          .setMinValue(0)
           .setDescription('Required value')
           .setRequired(true)
       )
@@ -97,34 +99,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const member = await interaction.guild?.members
           .fetch(row.discord_user_id)
           .catch(() => null);
-      
+
         if (!member) continue;
-      
+
         for (const rule of rules) {
           const role = interaction.guild?.roles.cache.get(rule.discord_role_id);
-      
+
           if (!role) continue;
-      
+
           const statValue = Number(row[rule.stat_type] ?? 0);
-      
-          const qualifies =
-            statValue >= Number(rule.threshold);
-      
-          if (
-            qualifies &&
-            !member.roles.cache.has(role.id)
-          ) {
+
+          const qualifies = statValue >= Number(rule.threshold);
+
+          if (qualifies && !member.roles.cache.has(role.id)) {
             await member.roles.add(role);
           }
-      
-          if (
-            !qualifies &&
-            member.roles.cache.has(role.id)
-          ) {
+
+          if (!qualifies && member.roles.cache.has(role.id)) {
             await member.roles.remove(role);
           }
         }
       }
+      await interaction.reply({
+        content: `sync complete`,
+        ephemeral: false,
+      });
     }
   } catch (err) {
     console.error('redcoats admin command error:', err);

@@ -3,6 +3,7 @@ import connection from '../database/connect.js';
 export const data = new SlashCommandBuilder()
     .setName('rcadmin')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDescription("admin stuff")
     .addSubcommand((sub) => sub
     .setName('roles')
     .setDescription('Assign stat-based roles to linked players')
@@ -13,6 +14,7 @@ export const data = new SlashCommandBuilder()
     .addChoices({ name: 'Average KD', value: 'average_kd' }, { name: 'Player Kills', value: 'total_player_kills' }, { name: 'Bot Kills', value: 'total_kills' }))
     .addNumberOption((option) => option
     .setName('threshold')
+    .setMinValue(0)
     .setDescription('Required value')
     .setRequired(true))
     .addRoleOption((option) => option.setName('role').setDescription('Role to award').setRequired(true)))
@@ -71,16 +73,18 @@ export async function execute(interaction) {
                         continue;
                     const statValue = Number(row[rule.stat_type] ?? 0);
                     const qualifies = statValue >= Number(rule.threshold);
-                    if (qualifies &&
-                        !member.roles.cache.has(role.id)) {
+                    if (qualifies && !member.roles.cache.has(role.id)) {
                         await member.roles.add(role);
                     }
-                    if (!qualifies &&
-                        member.roles.cache.has(role.id)) {
+                    if (!qualifies && member.roles.cache.has(role.id)) {
                         await member.roles.remove(role);
                     }
                 }
             }
+            await interaction.reply({
+                content: `sync complete`,
+                ephemeral: false,
+            });
         }
     }
     catch (err) {
