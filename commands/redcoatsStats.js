@@ -128,8 +128,7 @@ export async function execute(interaction) {
                     .setColor(0x3498db)
                     .addFields({
                     name: '📈 Lifetime Total Stats',
-                    value: `Score: **${Number(s.total_score).toLocaleString()}**\n` +
-                        `Player Kills: **${Number(s.total_player_kills).toLocaleString()}**\n` +
+                    value: `Player Kills: **${Number(s.total_player_kills).toLocaleString()}**\n` +
                         `Bot Kills: **${Number(s.total_kills).toLocaleString()}**\n` +
                         `Deaths: **${Number(s.total_deaths).toLocaleString()}**\n` +
                         `K/D: **${totalKd}**\n` +
