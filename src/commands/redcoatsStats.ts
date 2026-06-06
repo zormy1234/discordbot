@@ -14,6 +14,7 @@ import connection from '../database/connect.js';
 import { RowDataPacket } from 'mysql2/promise';
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import type { ChartConfiguration } from 'chart.js';
+import { RedcoatsRepository } from '../redcoats/RedcoatsRepository.js';
 
 const chartCanvas = new ChartJSNodeCanvas({
   width: 1200,
@@ -23,6 +24,16 @@ const chartCanvas = new ChartJSNodeCanvas({
 export const data = new SlashCommandBuilder()
   .setName('redcoats')
   .setDescription('Redcoats commands')
+  .addSubcommand((sub) =>
+    sub
+      .setName('link')
+      .setDescription(
+        'Request linking your Discord account to a Redcoats account'
+      )
+      .addStringOption((option) =>
+        option.setName('gid').setDescription('Redcoats GID').setRequired(true)
+      )
+  )
 
   .addSubcommand((sub) =>
     sub
@@ -33,6 +44,13 @@ export const data = new SlashCommandBuilder()
       )
       .addStringOption((o) =>
         o.setName('clan').setDescription('Clan').setRequired(false)
+      )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('mystats')
+      .setDescription(
+        'View your linked Redcoats stats (requires linked account)'
       )
   )
 
@@ -187,47 +205,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           });
         }
 
-        const s = statsRows[0];
-
-        const totalKd =
-          Number(s.total_deaths) > 0
-            ? (Number(s.total_player_kills) / Number(s.total_deaths)).toFixed(2)
-            : '∞';
-        
-        const killsPerGame =
-          Number(s.total_games) > 0
-            ? (
-                Number(s.total_player_kills) /
-                Number(s.total_games)
-              ).toFixed(2)
-            : '0';
-        
-        const embed = new EmbedBuilder()
-          .setTitle(
-            `📊 Stats for ${
-              s.latest_clan ? `[${s.latest_clan}] ` : ''
-            }${s.latest_username} (${gid})`
-          )
-          .setColor(0x3498db)
-          .addFields(
-            {
-              name: '📈 Lifetime Total Stats',
-              value:
-                `Player Kills: **${Number(s.total_player_kills).toLocaleString()}**\n` +
-                `Bot Kills: **${Number(s.total_kills).toLocaleString()}**\n` +
-                `Deaths: **${Number(s.total_deaths).toLocaleString()}**\n` +
-                `K/D: **${totalKd}**\n` +
-                `Kills/Game: **${killsPerGame}**`,
-              inline: false,
-            },
-            {
-              name: '🏆 Personal Bests',
-              value:
-                `Highest Score: **${Number(s.highest_score).toLocaleString()}**\n` +
-                `Best Match K/D: **${Number(s.best_single_game_kd).toFixed(2)}**`,
-              inline: false,
-            }
-          );
+        const { s, embed } = statsEmbed(statsRows, gid);
 
         return i.update({
           content: `Stats for **${s.latest_username}**`,
@@ -241,6 +219,62 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
 
       return;
+    }
+
+    if (sub === 'mystats') {
+      const discordId = interaction.user.id;
+      const [linkRows] = await connection.execute<RowDataPacket[]>(
+        `
+        SELECT gid
+        FROM redcoats_discord_links
+        WHERE discord_user_id = ?
+        LIMIT 1
+        `,
+        [discordId]
+      );
+
+      if (!linkRows.length) {
+        return interaction.editReply(
+          '❌ Your Discord account is not linked. Use /redcoats link and wait for an admin to approve the link request.'
+        );
+      }
+
+      const gid = linkRows[0].gid;
+      const [statsRows] = await connection.execute<RowDataPacket[]>(
+        `
+        SELECT
+          gid,
+          latest_username,
+          latest_clan,
+          total_games,
+          total_score,
+          total_kills,
+          total_player_kills,
+          total_deaths,
+          highest_score,
+          average_kd,
+          best_single_game_kd,
+          last_seen
+        FROM redcoats_player_stats
+        WHERE gid = ?
+        `,
+        [gid]
+      );
+
+      if (!statsRows.length) {
+        return interaction.editReply({
+          content: '❌ No stats found for this player.',
+          components: [],
+        });
+      }
+
+      const { s, embed } = statsEmbed(statsRows, gid);
+
+      return interaction.editReply({
+        content: `Stats for **${s.latest_username}**`,
+        embeds: [embed],
+        components: [],
+      });
     }
 
     // =========================
@@ -554,7 +588,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       const name = interaction.options.getString('name', true);
       // const metric = interaction.options.getString('metric', true);
 
-      const metric = 'average_kd'
+      const metric = 'average_kd';
       const isKD = metric === 'average_kd';
       // const isKills = metric === 'total_kills';
 
@@ -778,8 +812,110 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       return;
     }
+    if (sub === 'link') {
+      const gid = interaction.options.getString('gid', true);
+
+      const names = await RedcoatsRepository.getKnownNames(gid);
+
+      const requestId = await RedcoatsRepository.createLinkRequest(
+        interaction.user.id,
+        gid,
+        interaction.channelId
+      );
+
+      const embed = new EmbedBuilder()
+        .setTitle('Redcoats Link Request')
+        .addFields(
+          {
+            name: 'Discord User',
+            value: `<@${interaction.user.id}>`,
+          },
+          {
+            name: 'GID',
+            value: gid,
+          },
+          {
+            name: 'Known Names',
+            value: names.length > 0 ? names.join('\n') : 'None found',
+          }
+        );
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`rc_link_approve:${requestId}`)
+          .setLabel('Approve')
+          .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+          .setCustomId(`rc_link_reject:${requestId}`)
+          .setLabel('Reject')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      const approvalChannel = await interaction.client.channels.fetch(
+        process.env.LINK_RC_CHANNEL!
+      );
+
+      if (
+        !approvalChannel ||
+        !approvalChannel.isTextBased() ||
+        !approvalChannel.isSendable()
+      ) {
+        throw new Error('LINK_RC_CHANNEL invalid');
+      }
+
+      const message = await approvalChannel.send({
+        embeds: [embed],
+        components: [row],
+      });
+
+      await RedcoatsRepository.setApprovalMessage(requestId, message.id);
+
+      await interaction.editReply({
+        content: 'Your request to link your discord account has been submitted.'
+      });
+    }
   } catch (err) {
     console.error('redcoats command error:', err);
     return interaction.editReply('❌ Something went wrong.');
   }
+}
+function statsEmbed(statsRows: RowDataPacket[], gid: string) {
+  const s = statsRows[0];
+
+  const totalKd =
+    Number(s.total_deaths) > 0
+      ? (Number(s.total_player_kills) / Number(s.total_deaths)).toFixed(2)
+      : '∞';
+
+  const killsPerGame =
+    Number(s.total_games) > 0
+      ? (Number(s.total_player_kills) / Number(s.total_games)).toFixed(2)
+      : '0';
+
+  const embed = new EmbedBuilder()
+    .setTitle(
+      `📊 Stats for ${s.latest_clan ? `[${s.latest_clan}] ` : ''}${s.latest_username} (${gid})`
+    )
+    .setColor(0x3498db)
+    .addFields(
+      {
+        name: '📈 Lifetime Total Stats',
+        value:
+          `Player Kills: **${Number(s.total_player_kills).toLocaleString()}**\n` +
+          `Bot Kills: **${Number(s.total_kills).toLocaleString()}**\n` +
+          `Deaths: **${Number(s.total_deaths).toLocaleString()}**\n` +
+          `K/D: **${totalKd}**\n` +
+          `Kills/Game: **${killsPerGame}**`,
+        inline: false,
+      },
+      {
+        name: '🏆 Personal Bests',
+        value:
+          `Highest Score: **${Number(s.highest_score).toLocaleString()}**\n` +
+          `Best Match K/D: **${Number(s.best_single_game_kd).toFixed(2)}**`,
+        inline: false,
+      }
+    );
+  return { s, embed };
 }

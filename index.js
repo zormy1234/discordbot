@@ -2,10 +2,11 @@ import { Client, Collection, Events, GatewayIntentBits, REST, Routes, } from 'di
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import handleWinlogs from './handle_winlogs/ReceiveWinlogs.js';
 import './database/PrivateDbTables.js';
 import './database/SharedDbTables.js';
-import "./tracker.js";
+import handleWinlogs from './handle_winlogs/ReceiveWinlogs.js';
+import { LinkRequestButtonHandler } from './redcoats/LinkRequestButtonHandler.js';
+import './tracker.js';
 // __dirname replacement for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +54,9 @@ catch (error) {
     console.error('❌ Failed to register commands:', error);
 }
 client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isButton()) {
+        await LinkRequestButtonHandler.handle(interaction);
+    }
     if (!interaction.isChatInputCommand())
         return;
     const command = client.commands.get(interaction.commandName);

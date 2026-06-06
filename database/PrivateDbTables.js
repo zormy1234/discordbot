@@ -236,6 +236,29 @@ export async function initDB() {
       created_at TIMESTAMP
         NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS redcoats_link_requests (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+
+    discord_user_id VARCHAR(64) NOT NULL,
+    gid VARCHAR(64) NOT NULL,
+
+    request_channel_id VARCHAR(64) NOT NULL,
+    approval_message_id VARCHAR(64) NULL,
+
+    status ENUM('pending', 'approved', 'rejected')
+        NOT NULL DEFAULT 'pending',
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    reviewed_by VARCHAR(64) NULL,
+    reviewed_at TIMESTAMP NULL,
+
+    PRIMARY KEY (id),
+
+    INDEX idx_status (status)
+);
+    
   `);
 }
 initDB().catch(console.error);

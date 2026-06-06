@@ -1,4 +1,5 @@
 import {
+  ChatInputCommandInteraction,
   Client,
   Collection,
   Events,
@@ -6,18 +7,17 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
-  ChatInputCommandInteraction,
 } from 'discord.js';
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import './database/PrivateDbTables.js';
+import './database/SharedDbTables.js';
 import handleWinlogs from './handle_winlogs/ReceiveWinlogs.js';
-import './database/PrivateDbTables.js'
-import './database/SharedDbTables.js'
-import { enqueuePrivateDb } from './database/dbQueue.js';
 
-import "./tracker.js";
+import { LinkRequestButtonHandler } from './redcoats/LinkRequestButtonHandler.js';
+import './tracker.js';
 
 // __dirname replacement for ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -93,6 +93,10 @@ try {
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton()) {
+    await LinkRequestButtonHandler.handle(interaction);
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
