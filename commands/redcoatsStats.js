@@ -16,10 +16,7 @@ export const data = new SlashCommandBuilder()
     .addSubcommand((sub) => sub
     .setName('leaderboard')
     .setDescription('Leaderboard')
-    .addStringOption((o) => o
-    .setName('metric')
-    .setDescription('Metric')
-    .addChoices(
+    .addStringOption((o) => o.setName('metric').setDescription('Metric').addChoices(
 // { name: 'Total Player Kills', value: 'total_player_kills' },
 { name: 'Highest Score', value: 'highest_score' }, { name: 'Average KD', value: 'average_kd' }, { name: 'Best Single Game KD', value: 'best_single_game_kd' }))
     .addBooleanOption((o) => o
@@ -100,11 +97,15 @@ export async function execute(interaction) {
             gid,
             latest_username,
             latest_clan,
-            total_player_kills,
+            total_games,
+            total_score,
             total_kills,
+            total_player_kills,
+            total_deaths,
+            highest_score,
             average_kd,
             best_single_game_kd,
-            total_games
+            last_seen
           FROM redcoats_player_stats
           WHERE gid = ?
           `, [gid]);
@@ -115,26 +116,29 @@ export async function execute(interaction) {
                     });
                 }
                 const s = statsRows[0];
-                const avgKd = Number(s.average_kd ?? 0);
-                const bestKd = Number(s.best_single_game_kd ?? 0);
+                const totalKd = Number(s.total_deaths) > 0
+                    ? (Number(s.total_player_kills) / Number(s.total_deaths)).toFixed(2)
+                    : '∞';
+                const killsPerGame = Number(s.total_games) > 0
+                    ? (Number(s.total_player_kills) /
+                        Number(s.total_games)).toFixed(2)
+                    : '0';
                 const embed = new EmbedBuilder()
-                    .setTitle(`Redcoats Stats for ${s.latest_clan || ''} ${s.latest_username} (${gid})`)
-                    .setColor(0x0099ff)
+                    .setTitle(`📊 Stats for ${s.latest_clan ? `[${s.latest_clan}] ` : ''}${s.latest_username} (${gid})`)
+                    .setColor(0x3498db)
                     .addFields({
-                    name: 'Total Player Kills',
-                    value: `${s.total_player_kills?.toLocaleString?.() || 'N/A'}`,
+                    name: '📈 Lifetime Total Stats',
+                    value: `Score: **${Number(s.total_score).toLocaleString()}**\n` +
+                        `Player Kills: **${Number(s.total_player_kills).toLocaleString()}**\n` +
+                        `Bot Kills: **${Number(s.total_kills).toLocaleString()}**\n` +
+                        `Deaths: **${Number(s.total_deaths).toLocaleString()}**\n` +
+                        `K/D: **${totalKd}**\n` +
+                        `Kills/Game: **${killsPerGame}**`,
                     inline: false,
                 }, {
-                    name: 'Total Bot Kills',
-                    value: `${s.total_kills?.toLocaleString?.() || 'N/A'}`,
-                    inline: false,
-                }, {
-                    name: 'Average Player K/D',
-                    value: avgKd.toFixed(2),
-                    inline: false,
-                }, {
-                    name: 'Best Single Game K/D',
-                    value: bestKd.toFixed(2),
+                    name: '🏆 Personal Bests',
+                    value: `Highest Score: **${Number(s.highest_score).toLocaleString()}**\n` +
+                        `Best Match K/D: **${Number(s.best_single_game_kd).toFixed(2)}**`,
                     inline: false,
                 });
                 return i.update({
@@ -357,16 +361,10 @@ export async function execute(interaction) {
                 if (!btn.isButton())
                     return;
                 if (btn.customId === 'prev') {
-                    currentPage =
-                        currentPage === 0
-                            ? pages.length - 1
-                            : currentPage - 1;
+                    currentPage = currentPage === 0 ? pages.length - 1 : currentPage - 1;
                 }
                 if (btn.customId === 'next') {
-                    currentPage =
-                        currentPage === pages.length - 1
-                            ? 0
-                            : currentPage + 1;
+                    currentPage = currentPage === pages.length - 1 ? 0 : currentPage + 1;
                 }
                 const updatedRow = new ActionRowBuilder().addComponents(new ButtonBuilder()
                     .setCustomId('prev')
