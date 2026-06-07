@@ -94,7 +94,22 @@ try {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
-    await LinkRequestButtonHandler.handle(interaction);
+    try {
+      await LinkRequestButtonHandler.handle(interaction);
+    } catch (error) {
+      console.error(error);
+  
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({
+          content: '⚠️ There was an error executing this command.',
+        });
+      } else {
+        await interaction.reply({
+          content: '⚠️ There was an error executing this command.',
+          ephemeral: true,
+        });
+      }
+    }
   }
 
   if (!interaction.isChatInputCommand()) return;
