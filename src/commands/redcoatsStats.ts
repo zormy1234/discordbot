@@ -84,16 +84,16 @@ export const data = new SlashCommandBuilder()
       .addStringOption((o) =>
         o.setName('name').setDescription('Player name').setRequired(true)
       )
-      // .addStringOption((o) =>
-      //   o
-      //     .setName('metric')
-      //     .setDescription('Metric')
-      //     .setRequired(true)
-      //     .addChoices(
-      //       { name: 'Kills', value: 'total_kills' },
-      //       { name: 'KD Ratio', value: 'average_kd' }
-      //     )
-      // )
+      .addStringOption((o) =>
+        o
+          .setName('metric')
+          .setDescription('Metric')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Kills', value: 'total_kills' },
+            { name: 'KD Ratio', value: 'average_kd' }
+          )
+      )
       .addIntegerOption((o) =>
         o
           .setName('months')
@@ -589,9 +589,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // =========================
     if (sub === 'graph') {
       const name = interaction.options.getString('name', true);
-      // const metric = interaction.options.getString('metric', true);
+      const metric = interaction.options.getString('metric', true);
 
-      const metric = 'average_kd';
+      // const metric = 'average_kd';
       const isKD = metric === 'average_kd';
       // const isKills = metric === 'total_kills';
 
