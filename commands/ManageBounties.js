@@ -2,7 +2,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { cancelBounty, completeBounty, createBounty, listOpenBounties, showLeaderboard, showCompletedUserBounties, } from '../utils/BountyLogic.js';
 export const data = new SlashCommandBuilder()
-    .setName('bounty (old unused)')
+    .setName('bountyUnused)')
     .setDescription('Manage player bounties')
     // .addSubcommand((sub) =>
     //   sub
