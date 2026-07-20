@@ -13,7 +13,7 @@ import { RowDataPacket } from 'mysql2';
 import connection from '../database/connect.js';
 
 export const data = new SlashCommandBuilder()
-  .setName('bounty (old/unused)')
+  .setName('bounty (old unused)')
   .setDescription('Manage player bounties')
   // .addSubcommand((sub) =>
   //   sub
