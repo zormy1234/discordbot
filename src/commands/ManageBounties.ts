@@ -13,75 +13,75 @@ import { RowDataPacket } from 'mysql2';
 import connection from '../database/connect.js';
 
 export const data = new SlashCommandBuilder()
-  .setName('bounty')
+  .setName('bounty (old/unused)')
   .setDescription('Manage player bounties')
-  .addSubcommand((sub) =>
-    sub
-      .setName('create')
-      .setDescription('Create a bounty for a player')
-      .addStringOption((opt) =>
-        opt
-          .setName('player')
-          .setDescription('Player name to place a bounty on')
-          .setRequired(true)
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName('reason')
-          .setDescription('Reason for placing the bounty')
-          .setMaxLength(200)
-          .setRequired(true)
-      )
-      .addAttachmentOption(opt =>
-        opt
-          .setName('image')
-          .setDescription('Optional image for this bounty (e.g. screenshot or avatar)')
-      )
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('complete')
-      .setDescription('Mark a bounty as complete')
-      .addUserOption((opt) =>
-        opt
-          .setName('winner')
-          .setDescription('The user who completed the bounty')
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName('image_link')
-          .setDescription('Optional image link as proof of completion (e.g. https://...)')
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName('non_discord_winner')
-          .setDescription('Use this field if the winner is not in discord')
-      )
-      .addStringOption((opt) =>
-        opt.setName('bounty_id').setDescription('The bounty ID to complete')
-      )
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('cancel')
-      .setDescription('Cancel a bounty')
-      .addNumberOption((opt) =>
-        opt
-          .setName('bounty_id')
-          .setDescription('The bounty ID to cancel')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('list')
-      .setDescription('List all active bounties')
-      .addBooleanOption(opt =>
-        opt
-          .setName('oneline')
-          .setDescription('Show a simple one-line summary for each bounty')
-      )
-  )
+  // .addSubcommand((sub) =>
+  //   sub
+  //     .setName('create')
+  //     .setDescription('Create a bounty for a player')
+  //     .addStringOption((opt) =>
+  //       opt
+  //         .setName('player')
+  //         .setDescription('Player name to place a bounty on')
+  //         .setRequired(true)
+  //     )
+  //     .addStringOption((opt) =>
+  //       opt
+  //         .setName('reason')
+  //         .setDescription('Reason for placing the bounty')
+  //         .setMaxLength(200)
+  //         .setRequired(true)
+  //     )
+  //     .addAttachmentOption(opt =>
+  //       opt
+  //         .setName('image')
+  //         .setDescription('Optional image for this bounty (e.g. screenshot or avatar)')
+  //     )
+  // )
+  // .addSubcommand((sub) =>
+  //   sub
+  //     .setName('complete')
+  //     .setDescription('Mark a bounty as complete')
+  //     .addUserOption((opt) =>
+  //       opt
+  //         .setName('winner')
+  //         .setDescription('The user who completed the bounty')
+  //     )
+  //     .addStringOption((opt) =>
+  //       opt
+  //         .setName('image_link')
+  //         .setDescription('Optional image link as proof of completion (e.g. https://...)')
+  //     )
+  //     .addStringOption((opt) =>
+  //       opt
+  //         .setName('non_discord_winner')
+  //         .setDescription('Use this field if the winner is not in discord')
+  //     )
+  //     .addStringOption((opt) =>
+  //       opt.setName('bounty_id').setDescription('The bounty ID to complete')
+  //     )
+  // )
+  // .addSubcommand((sub) =>
+  //   sub
+  //     .setName('cancel')
+  //     .setDescription('Cancel a bounty')
+  //     .addNumberOption((opt) =>
+  //       opt
+  //         .setName('bounty_id')
+  //         .setDescription('The bounty ID to cancel')
+  //         .setRequired(true)
+  //     )
+  // )
+  // .addSubcommand((sub) =>
+  //   sub
+  //     .setName('list')
+  //     .setDescription('List all active bounties')
+  //     .addBooleanOption(opt =>
+  //       opt
+  //         .setName('oneline')
+  //         .setDescription('Show a simple one-line summary for each bounty')
+  //     )
+  // )
   .addSubcommand((sub) =>
     sub.setName('leaderboard').setDescription('Show the gold leaderboard')
   )
